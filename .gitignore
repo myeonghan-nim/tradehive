@@ -1,5 +1,6 @@
 *.crt
 *.key
+*.pem
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,django,visualstudiocode,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,django,visualstudiocode,linux
