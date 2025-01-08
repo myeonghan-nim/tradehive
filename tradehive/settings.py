@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -22,6 +23,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-nm88drrl4wc_w5&ciell2l&b9d%mg6!061hmwhpnvp%lb%d3&g"
+
+with open(os.path.join(BASE_DIR, "private.pem"), "r") as private_file:
+    SIGNING_KEY = private_file.read()
+
+with open(os.path.join(BASE_DIR, "public.pem"), "r") as public_file:
+    VERIFYING_KEY = public_file.read()
+
+SIMPLE_JWT = {
+    "SIGNING_KEY": SIGNING_KEY,
+    "VERIFYING_KEY": VERIFYING_KEY,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ALGORITHM": "RS256",
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ROTATE_REFRESH_TOKENS": True,
+    "ISSUER": "tradehive",
+    "LEEWAY": 30,
+}
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -38,12 +58,16 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "django_extensions",
-    "session_security",
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "users",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -51,19 +75,14 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "session_security.middleware.SessionSecurityMiddleware",
 ]
-
-LOGIN_URL = "/users/login/"
-LOGIN_REDIRECT_URL = "/users/profile/"
-LOGOUT_REDIRECT_URL = "/users/login/"  # TODO: change to "/"
 
 ROOT_URLCONF = "tradehive.urls"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, "templates")],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -74,9 +93,6 @@ TEMPLATES = [
             ],
         },
     },
-]
-TEMPLATE_CONTEXT_PROCESSORS = [
-    "django.core.context_processors.request",
 ]
 
 WSGI_APPLICATION = "tradehive.wsgi.application"
@@ -136,30 +152,38 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
-]
 
-
-# HTTPS
+# https
 
 SECURE_SSL_REDIRECT = True
-
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 SECURE_HSTS_SECONDS = 1 * 12 * 30 * 24 * 60 * 60  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 
-# session
+# CORS
 
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+CORS_ALLOW_ALL_ORIGINS = True  # TODO: Change this to False and add allowed origins
+CORS_ALLOWED_ORIGINS = []
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "authorization",
+]
 
 
-# session_security
+# rest_framework
 
-SESSION_SECURITY_WARN_AFTER = 25 * 60  # 25 minutes
-SESSION_SECURITY_EXPIRE_AFTER = 30 * 60  # 30 minutes
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "1000/day",
+        "anon": "100/hour",
+    },
+}
