@@ -62,7 +62,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class LogoutSerializer(serializers.Serializer):
-    def validate(self, attrs):
+    def validate(self, data):
         request = self.context["request"]
 
         auth_header = request.headers.get("Authorization")
@@ -76,11 +76,11 @@ class LogoutSerializer(serializers.Serializer):
         except Exception as e:
             raise serializers.ValidationError(f"Invalid token: {str(e)}")
 
-        return {}
+        return data
 
 
 class CustomTokenRefreshSerializer(serializers.Serializer):
-    def validate(self, attrs):
+    def validate(self, data):
         request = self.context["request"]
 
         auth_header = request.headers.get("Authorization")
@@ -105,7 +105,7 @@ class EnableMFASerializer(serializers.Serializer):
         model = CustomUserTOTPDevice
         fields = ("name",)
 
-    def validate(self, attrs):
+    def validate(self, data):
         user = self.context.get("request").user
         if not User.objects.filter(id=user.id).exists():
             raise serializers.ValidationError("User does not exist.")
@@ -116,7 +116,7 @@ class EnableMFASerializer(serializers.Serializer):
             user.mfa_enabled = True
             user.save()
 
-        return attrs
+        return data
 
 
 class QRCodeSerializer(serializers.Serializer):
@@ -129,27 +129,41 @@ class QRCodeSerializer(serializers.Serializer):
     def get_qr_code_url(self, obj):
         return obj.config_url
 
-    def validate(self, attrs):
+    def validate(self, data):
         user = self.context.get("request").user
         device = CustomUserTOTPDevice.objects.filter(user=user).first()
         if not device:
             raise serializers.ValidationError("No MFA device found.")
 
-        attrs["device"] = device
-        return attrs
+        data["device"] = device
+        return data
 
 
 class VerifyOTPSerializer(serializers.Serializer):
     otp_code = serializers.CharField(max_length=6, write_only=True)
 
-    def validate(self, attrs):
+    def validate(self, data):
         user = self.context.get("request").user
         device = CustomUserTOTPDevice.objects.filter(user=user).first()
         if not device:
             raise serializers.ValidationError("MFA is not enabled for this user.")
 
-        otp_code = attrs.get("otp_code")
+        otp_code = data.get("otp_code")
         if not device.verify_token(otp_code):
             raise serializers.ValidationError("Invalid OTP.")
 
-        return attrs
+        return data
+
+
+class DeleteMFASerializer(serializers.Serializer):
+    def validate(self, data):
+        user = self.context.get("request").user
+        device = CustomUserTOTPDevice.objects.filter(user=user).first()
+        if not device:
+            raise serializers.ValidationError("MFA is not enabled for this user.")
+
+        device.delete()
+        user.mfa_enabled = False
+        user.save()
+
+        return data
