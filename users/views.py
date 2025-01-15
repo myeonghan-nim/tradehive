@@ -6,7 +6,6 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenViewBase
 
-from .models import CustomUserTOTPDevice
 from .serializers import RegisterSerializer, LoginSerializer, LogoutSerializer, CustomTokenRefreshSerializer, EnableMFASerializer, QRCodeSerializer, VerifyOTPSerializer
 
 
