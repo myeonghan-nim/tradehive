@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .models import CustomUserTOTPDevice
+
 User = get_user_model()
 
 
@@ -96,3 +98,58 @@ class CustomTokenRefreshSerializer(serializers.Serializer):
             data["refresh"] = str(refresh)
 
         return data
+
+
+class EnableMFASerializer(serializers.Serializer):
+    class Meta:
+        model = CustomUserTOTPDevice
+        fields = ("name",)
+
+    def validate(self, attrs):
+        user = self.context.get("request").user
+        if not User.objects.filter(id=user.id).exists():
+            raise serializers.ValidationError("User does not exist.")
+
+        if CustomUserTOTPDevice.objects.filter(user=user).exists():
+            raise serializers.ValidationError("MFA is already enabled for this user.")
+        else:
+            user.mfa_enabled = True
+            user.save()
+
+        return attrs
+
+
+class QRCodeSerializer(serializers.Serializer):
+    qr_code_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUserTOTPDevice
+        fields = ("qr_code_url",)
+
+    def get_qr_code_url(self, obj):
+        return obj.config_url
+
+    def validate(self, attrs):
+        user = self.context.get("request").user
+        device = CustomUserTOTPDevice.objects.filter(user=user).first()
+        if not device:
+            raise serializers.ValidationError("No MFA device found.")
+
+        attrs["device"] = device
+        return attrs
+
+
+class VerifyOTPSerializer(serializers.Serializer):
+    otp_code = serializers.CharField(max_length=6, write_only=True)
+
+    def validate(self, attrs):
+        user = self.context.get("request").user
+        device = CustomUserTOTPDevice.objects.filter(user=user).first()
+        if not device:
+            raise serializers.ValidationError("MFA is not enabled for this user.")
+
+        otp_code = attrs.get("otp_code")
+        if not device.verify_token(otp_code):
+            raise serializers.ValidationError("Invalid OTP.")
+
+        return attrs
