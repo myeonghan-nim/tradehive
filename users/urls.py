@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import RegisterView, LoginView, LogoutView, CustomTokenRefreshView, EnableMFAView, QRCodeView, VerifyOTPView
+from .views import RegisterView, LoginView, LogoutView, CustomTokenRefreshView, EnableMFAView, QRCodeView, VerifyOTPView, DeleteMFAView
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
@@ -10,4 +10,5 @@ urlpatterns = [
     path("enable-mfa/", EnableMFAView.as_view(), name="enable-mfa"),
     path("qr-code/", QRCodeView.as_view(), name="qr-code"),
     path("verify-otp/", VerifyOTPView.as_view(), name="verify-otp"),
+    path("delete-mfa/", DeleteMFAView.as_view(), name="delete-mfa"),
 ]

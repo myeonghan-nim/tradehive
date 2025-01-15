@@ -6,7 +6,16 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenViewBase
 
-from .serializers import RegisterSerializer, LoginSerializer, LogoutSerializer, CustomTokenRefreshSerializer, EnableMFASerializer, QRCodeSerializer, VerifyOTPSerializer
+from .serializers import (
+    RegisterSerializer,
+    LoginSerializer,
+    LogoutSerializer,
+    CustomTokenRefreshSerializer,
+    EnableMFASerializer,
+    QRCodeSerializer,
+    VerifyOTPSerializer,
+    DeleteMFASerializer,
+)
 
 
 class RegisterView(APIView):
@@ -32,15 +41,11 @@ class LoginView(APIView):
 
 
 class LogoutView(TokenViewBase):
-    serializer_class = LogoutSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, context={"request": request})
-        try:
-            serializer.is_valid(raise_exception=True)
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
             return Response({"detail": "Logged out successfully."}, status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CustomTokenRefreshView(TokenViewBase):
@@ -66,7 +71,7 @@ class QRCodeView(APIView):
             device = serializer.validated_data.get("device")
             qr_code_url = serializer.get_qr_code_url(device)
             return Response({"qr_code_url": qr_code_url}, status=status.HTTP_200_OK)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyOTPView(APIView):
@@ -77,3 +82,13 @@ class VerifyOTPView(APIView):
         if serializer.is_valid():
             return Response({"detail": "MFA verification successful."}, status=status.HTTP_200_OK)
         return Response({"error": "Invalid OTP code."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteMFAView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        serializer = DeleteMFASerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            return Response({"detail": "MFA disabled successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
