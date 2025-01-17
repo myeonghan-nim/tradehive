@@ -42,3 +42,9 @@
 - serializer와 View의 역할 분리
     - serializer: 검증 및 데이터 가공
     - View: request와 response 전달
+
+### 4일차
+
+- 개인 정보 수정 기능 추가
+    - GET으로 사용자 프로필 정보 가져오기
+    - PATCH로 사용자 프로필 정보 수정하기
