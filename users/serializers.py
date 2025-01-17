@@ -167,3 +167,12 @@ class DeleteMFASerializer(serializers.Serializer):
         user.save()
 
         return data
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(validators=[RegexValidator(regex=r"^\d{3}-\d{4}-\d{4}$", message="Phone number must be in the format xxx-xxxx-xxxx.")], required=False)
+
+    class Meta:
+        model = User
+        fields = ("email", "username", "phone_number")
+        read_only_fields = ("email",)
