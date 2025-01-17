@@ -33,6 +33,10 @@ class SecureClient(APIClient):
         kwargs["secure"] = True
         return super().post(*args, **kwargs)
 
+    def patch(self, *args, **kwargs):
+        kwargs["secure"] = True
+        return super().patch(*args, **kwargs)
+
     def delete(self, *args, **kwargs):
         kwargs["secure"] = True
         return super().delete(*args, **kwargs)
@@ -263,4 +267,43 @@ class DeleteMFAAPITestCase(APITestCase):
     def test_delete_mfa_no_device(self):
         CustomUserTOTPDevice.objects.all().delete()
         response = self.client.delete(self.delete_mfa_url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class UserProfileAPITestCase(APITestCase):
+    def setUp(self):
+        self.client = SecureClient()
+
+        self.profile_url = "/users/profile/"
+
+        self.user_data = USER_DATA
+        self.user = User.objects.create_user(**self.user_data)
+
+        response = self.client.post("/users/login/", {"email": self.user_data["email"], "password": self.user_data["password"]})
+        token = response.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    def test_get_profile(self):
+        response = self.client.get(self.profile_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["email"], self.user_data["email"])
+        self.assertEqual(response.data["username"], self.user_data["username"])
+        self.assertEqual(response.data["phone_number"], self.user_data["phone_number"])
+
+    def test_update_profile(self):
+        data = {
+            "username": "newusername",
+            "phone_number": "987-6543-2109",
+        }
+        response = self.client.patch(self.profile_url, data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["email"], self.user_data["email"])
+        self.assertEqual(response.data["username"], data["username"])
+        self.assertEqual(response.data["phone_number"], data["phone_number"])
+
+    def test_update_with_invalid_phone(self):
+        data = {
+            "phone_number": "invalid_number",
+        }
+        response = self.client.patch(self.profile_url, data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
