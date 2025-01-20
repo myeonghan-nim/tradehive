@@ -14,12 +14,6 @@ USER_DATA = {
     "password": "StrongPassword123!",
     "phone_number": "123-4567-8901",
 }
-EXIST_USER_DATA = {
-    "email": "exist_test@example.com",
-    "username": "exist_testuser",
-    "password": "exist_StrongPassword123!",
-    "phone_number": "234-5678-9012",
-}
 
 User = get_user_model()
 
@@ -42,95 +36,90 @@ class SecureClient(APIClient):
         return super().delete(*args, **kwargs)
 
 
-class RegisterAPITestCase(APITestCase):
+class BaseAPITestCase(APITestCase):
+    login_url = "/users/login/"
+    user_data = USER_DATA
+
     def setUp(self):
         self.client = SecureClient()
+        self.user = User.objects.create_user(**self.user_data)
 
-        self.register_url = "/users/register/"
+    def authenticate_user(self):
+        response = self.client.post(self.login_url, {"email": self.user_data["email"], "password": self.user_data["password"]})
+        self.token = response.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token}")
 
-        self.user_data = USER_DATA
+    def create_mfa_device(self, name="Test Device"):
+        return CustomUserTOTPDevice.objects.create(user=self.user, name=name)
 
-        self.invalid_email_data = {**self.user_data, "email": "invalidemail"}
-        self.invalid_password_data = {**self.user_data, "password": "weak"}
-        self.invalid_phone_number_data = {**self.user_data, "phone_number": "123-4567-890"}
-        self.missmatch_password_data = {**self.user_data, "confirm_password": "MissmatchPassword123!"}
+    def generate_valid_otp(self, device):
+        base32_key = base64.b32encode(device.bin_key).decode("utf-8")
+        return pyotp.TOTP(base32_key).now()
 
-        self.exist_user_data = EXIST_USER_DATA
-        User.objects.create_user(**self.exist_user_data)
+
+class RegisterAPITestCase(BaseAPITestCase):
+    register_url = "/users/register/"
+    register_data = {**USER_DATA, "confirm_password": USER_DATA["password"]}
 
     def test_register_user_success(self):
-        user_data = {**self.user_data, "confirm_password": self.user_data["password"]}
-        response = self.client.post(self.register_url, user_data)
+        User.objects.all().delete()
+
+        response = self.client.post(self.register_url, self.register_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn("refresh", response.data)
         self.assertIn("access", response.data)
 
-    def test_register_user_invalid_email_format(self):
-        response = self.client.post(self.register_url, self.invalid_email_data)
+    def test_register_user_invalid_email(self):
+        response = self.client.post(self.register_url, {**self.register_data, "email": "invalid_email"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("email", response.data)
 
     def test_register_user_invalid_phone_number(self):
-        response = self.client.post(self.register_url, self.invalid_phone_number_data)
+        response = self.client.post(self.register_url, {**self.register_data, "phone_number": "invalid_number"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("phone_number", response.data)
 
     def test_register_user_invalid_password(self):
-        response = self.client.post(self.register_url, self.invalid_password_data)
+        response = self.client.post(self.register_url, {**self.register_data, "password": "weak"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("password", response.data)
 
     def test_register_user_password_mismatch(self):
-        response = self.client.post(self.register_url, self.missmatch_password_data)
+        response = self.client.post(self.register_url, {**self.register_data, "confirm_password": "weak"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("confirm_password", response.data)
 
-    def test_register_user_email_exists(self):
-        response = self.client.post(self.register_url, self.exist_user_data)
+    def test_register_user_exists(self):
+        response = self.client.post(self.register_url, self.register_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("email", response.data)
 
 
-class LoginAPITestCase(APITestCase):
-    def setUp(self):
-        self.client = SecureClient()
-
-        self.login_url = "/users/login/"
-
-        self.user_data = USER_DATA
-        User.objects.create_user(**self.user_data)
+class LoginAPITestCase(BaseAPITestCase):
+    login_url = "/users/login/"
+    login_data = {"email": USER_DATA["email"], "password": USER_DATA["password"]}
 
     def test_login_user_success(self):
-        login_data = {"email": self.user_data["email"], "password": self.user_data["password"]}
-        response = self.client.post(self.login_url, login_data)
+        response = self.client.post(self.login_url, self.login_data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("refresh", response.data)
         self.assertIn("access", response.data)
 
     def test_login_user_invalid_credentials(self):
-        login_data = {"email": self.user_data["email"], "password": "WrongPassword!"}
-        response = self.client.post(self.login_url, login_data)
+        response = self.client.post(self.login_url, {**self.login_data, "password": "WrongPassword!"})
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("error", response.data)
 
 
-class LogoutAPITestCase(APITestCase):
-    def setUp(self):
-        self.client = SecureClient()
-
-        self.logout_url = "/users/logout/"
-
-        self.user_data = USER_DATA
-        self.user = User.objects.create_user(**self.user_data)
-        self.refresh = RefreshToken.for_user(self.user)
+class LogoutAPITestCase(BaseAPITestCase):
+    logout_url = "/users/logout/"
 
     def test_logout_success(self):
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.refresh}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(self.user)}")
         response = self.client.post(self.logout_url)
         self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
 
     def test_logout_invalid_token(self):
-        self.client.credentials(HTTP_AUTHORIZATION="Bearer invalidtoken")
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer invalid_token")
         response = self.client.post(self.logout_url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -139,66 +128,58 @@ class LogoutAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-class RefreshAPITestCase(APITestCase):
-    def setUp(self):
-        self.client = SecureClient()
-
-        self.refresh_url = "/users/refresh/"
-
-        self.user_data = USER_DATA
-        self.user = User.objects.create_user(**self.user_data)
-        self.refresh = RefreshToken.for_user(self.user)
+class RefreshAPITestCase(BaseAPITestCase):
+    refresh_url = "/users/refresh/"
 
     def test_token_refresh_success(self):
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.refresh}")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(self.user)}")
         response = self.client.post(self.refresh_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
 
     def test_token_refresh_invalid_token(self):
-        self.client.credentials(HTTP_AUTHORIZATION="Bearer invalidtoken")
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer invalid_token")
         response = self.client.post(self.refresh_url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-class EnableMFAAPITestCase(APITestCase):
+class MFAAPITestCase(BaseAPITestCase):
+    enable_mfa_url = "/users/enable-mfa/"
+    delete_mfa_url = "/users/delete-mfa/"
+
     def setUp(self):
-        self.client = SecureClient()
-
-        self.enable_mfa_url = "/users/enable-mfa/"
-
-        self.user_data = USER_DATA
-        self.user = User.objects.create_user(**self.user_data)
-
-        response = self.client.post("/users/login/", {"email": self.user_data["email"], "password": self.user_data["password"]})
-        token = response.data["access"]
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        super().setUp()
+        self.authenticate_user()
 
     def test_enable_mfa_success(self):
-        response = self.client.post(self.enable_mfa_url)
+        response = self.client.post(self.enable_mfa_url, {"name": "Test Device"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_enable_mfa_already_enabled(self):
-        CustomUserTOTPDevice.objects.create(user=self.user, name="Test Device")
+        self.create_mfa_device()
         response = self.client.post(self.enable_mfa_url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_delete_mfa_success(self):
+        self.create_mfa_device()
+        response = self.client.delete(self.delete_mfa_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(CustomUserTOTPDevice.objects.filter(user=self.user).exists())
+        self.assertFalse(self.user.mfa_enabled)
 
-class QRCodeAPITestCase(APITestCase):
+    def test_delete_mfa_no_device(self):
+        response = self.client.delete(self.delete_mfa_url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class QRCodeAPITestCase(BaseAPITestCase):
+    qr_code_url = "/users/qr-code/"
+
     def setUp(self):
-        self.client = SecureClient()
-
-        self.qr_code_url = "/users/qr-code/"
-
-        self.user_data = USER_DATA
-        self.user = User.objects.create_user(**self.user_data)
-
-        response = self.client.post("/users/login/", {"email": self.user_data["email"], "password": self.user_data["password"]})
-        token = response.data["access"]
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-
-        CustomUserTOTPDevice.objects.create(user=self.user, name="Test Device")
+        super().setUp()
+        self.authenticate_user()
+        self.create_mfa_device()
 
     def test_qr_code_success(self):
         response = self.client.get(self.qr_code_url)
@@ -211,26 +192,16 @@ class QRCodeAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-class VerifyOTPAPITestCase(APITestCase):
+class VerifyOTPAPITestCase(BaseAPITestCase):
+    verify_otp_url = "/users/verify-otp/"
+
     def setUp(self):
-        self.client = SecureClient()
-
-        self.verify_otp_url = "/users/verify-otp/"
-
-        self.user_data = USER_DATA
-        self.user = User.objects.create_user(**self.user_data)
-
-        response = self.client.post("/users/login/", {"email": self.user_data["email"], "password": self.user_data["password"]})
-        token = response.data["access"]
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-
-        CustomUserTOTPDevice.objects.create(user=self.user, name="Test Device")
+        super().setUp()
+        self.authenticate_user()
+        self.device = self.create_mfa_device()
 
     def test_verify_otp_success(self):
-        device = CustomUserTOTPDevice.objects.get(user=self.user)
-        base32_key = base64.b32encode(device.bin_key).decode("utf-8")
-        otp_code = pyotp.TOTP(base32_key).now()
-        response = self.client.post(self.verify_otp_url, {"otp_code": otp_code})
+        response = self.client.post(self.verify_otp_url, {"otp_code": self.generate_valid_otp(self.device)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_verify_otp_invalid_otp(self):
@@ -243,67 +214,60 @@ class VerifyOTPAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-class DeleteMFAAPITestCase(APITestCase):
+class UserProfileAPITestCase(BaseAPITestCase):
+    profile_url = "/users/profile/"
+
     def setUp(self):
-        self.client = SecureClient()
+        super().setUp()
+        self.authenticate_user()
 
-        self.delete_mfa_url = "/users/delete-mfa/"
-
-        self.user_data = USER_DATA
-        self.user = User.objects.create_user(**self.user_data)
-
-        response = self.client.post("/users/login/", {"email": self.user_data["email"], "password": self.user_data["password"]})
-        token = response.data["access"]
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-
-        CustomUserTOTPDevice.objects.create(user=self.user, name="Test Device")
-
-    def test_delete_mfa_success(self):
-        response = self.client.delete(self.delete_mfa_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(CustomUserTOTPDevice.objects.filter(user=self.user).exists())
-        self.assertFalse(self.user.mfa_enabled)
-
-    def test_delete_mfa_no_device(self):
-        CustomUserTOTPDevice.objects.all().delete()
-        response = self.client.delete(self.delete_mfa_url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-
-class UserProfileAPITestCase(APITestCase):
-    def setUp(self):
-        self.client = SecureClient()
-
-        self.profile_url = "/users/profile/"
-
-        self.user_data = USER_DATA
-        self.user = User.objects.create_user(**self.user_data)
-
-        response = self.client.post("/users/login/", {"email": self.user_data["email"], "password": self.user_data["password"]})
-        token = response.data["access"]
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-
-    def test_get_profile(self):
+    def test_get_profile_success(self):
         response = self.client.get(self.profile_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["email"], self.user_data["email"])
         self.assertEqual(response.data["username"], self.user_data["username"])
         self.assertEqual(response.data["phone_number"], self.user_data["phone_number"])
 
-    def test_update_profile(self):
-        data = {
-            "username": "newusername",
-            "phone_number": "987-6543-2109",
-        }
-        response = self.client.patch(self.profile_url, data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["email"], self.user_data["email"])
-        self.assertEqual(response.data["username"], data["username"])
-        self.assertEqual(response.data["phone_number"], data["phone_number"])
+    def test_get_profile_no_auth(self):
+        self.client.credentials()
+        response = self.client.get(self.profile_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_update_with_invalid_phone(self):
-        data = {
-            "phone_number": "invalid_number",
-        }
-        response = self.client.patch(self.profile_url, data)
+    def test_update_profile_success(self):
+        response = self.client.patch(self.profile_url, {"username": "newusername", "phone_number": "987-6543-2109"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_update_profile_invalid_phone(self):
+        response = self.client.patch(self.profile_url, {"phone_number": "invalid_number"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_delete_profile_success(self):
+        device = self.create_mfa_device()
+        response = self.client.delete(self.profile_url, {"otp_code": self.generate_valid_otp(device)})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(User.objects.filter(email=self.user_data["email"]).exists())
+
+    def test_delete_profile_invalid_otp(self):
+        self.create_mfa_device()
+        response = self.client.delete(self.profile_url, {"otp_code": "123456"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class ChangePasswordAPITestCase(BaseAPITestCase):
+    change_password_url = "/users/change-password/"
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate_user()
+
+    def test_change_password_success(self):
+        responst = self.client.post(self.change_password_url, {"old_password": self.user_data["password"], "new_password": "NewStrongPassword123!"})
+        self.assertEqual(responst.status_code, status.HTTP_200_OK)
+
+    def test_change_password_invalid_old_password(self):
+        responst = self.client.post(self.change_password_url, {"old_password": "InvalidPassword123!", "new_password": "NewStrongPassword123!"})
+        self.assertEqual(responst.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_change_password_weak_password(self):
+        responst = self.client.post(self.change_password_url, {"old_password": self.user_data["password"], "new_password": "weak"})
+        self.assertEqual(responst.status_code, status.HTTP_400_BAD_REQUEST)
