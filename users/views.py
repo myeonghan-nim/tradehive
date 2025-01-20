@@ -11,12 +11,25 @@ from .serializers import (
     LoginSerializer,
     LogoutSerializer,
     CustomTokenRefreshSerializer,
+    ChangePasswordSerializer,
     EnableMFASerializer,
+    DeleteMFASerializer,
     QRCodeSerializer,
     VerifyOTPSerializer,
-    DeleteMFASerializer,
     UserProfileSerializer,
+    UserProfileDeleteSerialzier,
 )
+
+
+def process_serializer(serializer, success_status, success_message=None, additional_data=None):
+    if serializer.is_valid():
+        response_data = {}
+        if success_message:
+            response_data["detail"] = success_message
+        if additional_data:
+            response_data.update(additional_data)
+        return Response(response_data, status=success_status)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RegisterView(APIView):
@@ -44,23 +57,34 @@ class LoginView(APIView):
 class LogoutView(TokenViewBase):
     def post(self, request):
         serializer = LogoutSerializer(data=request.data, context={"request": request})
-        if serializer.is_valid():
-            return Response({"detail": "Logged out successfully."}, status=status.HTTP_205_RESET_CONTENT)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return process_serializer(serializer, status.HTTP_205_RESET_CONTENT, "Logged out successfully.")
 
 
 class CustomTokenRefreshView(TokenViewBase):
     serializer_class = CustomTokenRefreshSerializer
 
 
-class EnableMFAView(APIView):
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, user=request.user, context={"request": request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"detail": "Password changed successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MFAView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = EnableMFASerializer(data=request.data, context={"request": request})
-        if serializer.is_valid():
-            return Response({"detail": "MFA enabled successfully."}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return process_serializer(serializer, status.HTTP_200_OK, "MFA enabled successfully.")
+
+    def delete(self, request):
+        serializer = DeleteMFASerializer(data=request.data, context={"request": request})
+        return process_serializer(serializer, status.HTTP_200_OK, "MFA disabled successfully.")
 
 
 class QRCodeView(APIView):
@@ -80,33 +104,23 @@ class VerifyOTPView(APIView):
 
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data, context={"request": request})
-        if serializer.is_valid():
-            return Response({"detail": "MFA verification successful."}, status=status.HTTP_200_OK)
-        return Response({"error": "Invalid OTP code."}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class DeleteMFAView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def delete(self, request):
-        serializer = DeleteMFASerializer(data=request.data, context={"request": request})
-        if serializer.is_valid():
-            return Response({"detail": "MFA disabled successfully."}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return process_serializer(serializer, status.HTTP_200_OK, "MFA verification successful.")
 
 
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        serializer = UserProfileSerializer(user)
+        serializer = UserProfileSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request):
-        user = request.user
-        serializer = UserProfileSerializer(user, data=request.data, partial=True)
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+        return process_serializer(serializer, status.HTTP_200_OK, "Profile updated successfully.")
+
+    def delete(self, request):
+        serializer = UserProfileDeleteSerialzier(data=request.data, context={"request": request})
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            request.user.delete()
+            return Response({"detail": "User deleted successfully."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
