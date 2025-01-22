@@ -200,17 +200,19 @@ class VerifyOTPAPITestCase(BaseAPITestCase):
         self.authenticate_user()
         self.device = self.create_mfa_device()
 
+        self.invaild_otp_data = {"otp_code": "123456"}
+
     def test_verify_otp_success(self):
         response = self.client.post(self.verify_otp_url, {"otp_code": self.generate_valid_otp(self.device)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_verify_otp_invalid_otp(self):
-        response = self.client.post(self.verify_otp_url, {"otp_code": "123456"})
+        response = self.client.post(self.verify_otp_url, self.invaild_otp_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_verify_otp_mfa_not_enabled(self):
         CustomUserTOTPDevice.objects.all().delete()
-        response = self.client.post(self.verify_otp_url, {"otp_code": "123456"})
+        response = self.client.post(self.verify_otp_url, self.invaild_otp_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
