@@ -62,10 +62,12 @@ INSTALLED_APPS = [
     "django_extensions",
     "django_otp",
     "django_otp.plugins.otp_totp",
+    "django_celery_beat",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "users",
+    "orders",
 ]
 
 MIDDLEWARE = [
@@ -106,8 +108,12 @@ WSGI_APPLICATION = "tradehive.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("POSTGRES_HOST"),
+        "PORT": os.getenv("POSTGRES_PORT"),
     }
 }
 
@@ -190,3 +196,12 @@ REST_FRAMEWORK = {
         "anon": "100/hour",
     },
 }
+
+
+# celery
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
