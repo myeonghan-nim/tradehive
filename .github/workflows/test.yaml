@@ -31,7 +31,7 @@ jobs:
           echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
 
       - name: setup docker compose
-        uses: hoverkraft-tech/compose-action@v2
+        uses: hoverkraft-tech/compose-action@v2.2.0
         with:
           compose-file: docker-compose.yml
 
