@@ -12,10 +12,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout the repository
+      - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - name: setup environment
+      - name: Setup docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Setup environment
         run: |
           echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
           echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
@@ -30,10 +33,13 @@ jobs:
           echo "PRIVATE_PEM=${{ secrets.PRIVATE_PEM }}" >> $GITHUB_ENV
           echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
 
-      - name: setup docker compose and run test
-        uses: hoverkraft-tech/compose-action@v2.2.0
-        with:
-          compose-file: docker-compose.yml
+      - name: Build docker compose
+        run: docker compose build
+
+      - name: Up docker compose
+        run: docker compose up -d
+
+      - name: Test
         run: |
           echo $CERT_CRT | base64 -d > $GITHUB_WORKSPACE/cert.crt
           echo $CERT_KEY | base64 -d > $GITHUB_WORKSPACE/cert.key
@@ -45,4 +51,4 @@ jobs:
           chmod 600 $GITHUB_WORKSPACE/private.pem
           chmod 600 $GITHUB_WORKSPACE/public.pem
 
-          docker-compose exec web test -v 3
+          docker compose exec web test -v 3
