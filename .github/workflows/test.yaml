@@ -15,9 +15,6 @@ jobs:
       - name: checkout the repository
         uses: actions/checkout@v4
 
-      - name: setup docker buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: setup environment
         run: |
           echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
@@ -33,11 +30,10 @@ jobs:
           echo "PRIVATE_PEM=${{ secrets.PRIVATE_PEM }}" >> $GITHUB_ENV
           echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
 
-      - name: docker-compose build
-        run: docker-compose build
-
-      - name: docker-compose up
-        run: docker-compose up -d
+      - name: setup docker compose
+        uses: hoverkraft-tech/compose-action@v2
+        with:
+          compose-file: docker-compose.yml
 
       - name: docker-compose test with decoded secrets
         run: |
