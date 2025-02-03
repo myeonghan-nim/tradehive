@@ -63,6 +63,8 @@ class TradingPairAPITestCase(BaseAPITestCase):
 
     def setUp(self):
         super().setUp()
+        self.user.is_staff = True
+        self.user.save()
         self.authenticate_user()
 
         self.trading_pair_data = {
