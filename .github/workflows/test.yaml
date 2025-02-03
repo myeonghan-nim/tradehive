@@ -51,4 +51,4 @@ jobs:
           chmod 600 $GITHUB_WORKSPACE/private.pem
           chmod 600 $GITHUB_WORKSPACE/public.pem
 
-          docker compose exec web test -v 3
+          docker compose exec web python manage.py test -v 3
