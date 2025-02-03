@@ -30,12 +30,10 @@ jobs:
           echo "PRIVATE_PEM=${{ secrets.PRIVATE_PEM }}" >> $GITHUB_ENV
           echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
 
-      - name: setup docker compose
+      - name: setup docker compose and run test
         uses: hoverkraft-tech/compose-action@v2.2.0
         with:
           compose-file: docker-compose.yml
-
-      - name: docker-compose test with decoded secrets
         run: |
           echo $CERT_CRT | base64 -d > $GITHUB_WORKSPACE/cert.crt
           echo $CERT_KEY | base64 -d > $GITHUB_WORKSPACE/cert.key
