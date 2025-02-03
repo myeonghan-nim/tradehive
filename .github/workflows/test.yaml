@@ -1,0 +1,54 @@
+name: tradehive test
+
+on:
+  push:
+    branches:
+      - *
+  pull_request:
+    branches:
+      - *
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout the repository
+        uses: actions/checkout@v4
+
+      - name: setup docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: setup environment
+        run: |
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
+          echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> .env
+          echo "REDIS_HOST=${{ secrets.REDIS_HOST }}" >> .env
+          echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> .env
+          echo "CELERY_BROKER_URL=${{ secrets.CELERY_BROKER_URL }}" >> .env
+          echo "CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }}" >> .env
+          echo "CERT_CRT=${{ secrets.CERT_CRT }}" >> $GITHUB_ENV
+          echo "CERT_KEY=${{ secrets.CERT_KEY }}" >> $GITHUB_ENV
+          echo "PRIVATE_PEM=${{ secrets.PRIVATE_PEM }}" >> $GITHUB_ENV
+          echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
+
+      - name: docker-compose build
+        run: docker-compose build
+
+      - name: docker-compose up
+        run: docker-compose up -d
+
+      - name: docker-compose test with decoded secrets
+        run: |
+          echo $CERT_CRT | base64 -d > $GITHUB_WORKSPACE/cert.crt
+          echo $CERT_KEY | base64 -d > $GITHUB_WORKSPACE/cert.key
+          echo $PRIVATE_PEM | base64 -d > $GITHUB_WORKSPACE/private.pem
+          echo $PUBLIC_PEM | base64 -d > $GITHUB_WORKSPACE/public.pem
+
+          chmod 600 $GITHUB_WORKSPACE/cert.crt
+          chmod 600 $GITHUB_WORKSPACE/cert.key
+          chmod 600 $GITHUB_WORKSPACE/private.pem
+          chmod 600 $GITHUB_WORKSPACE/public.pem
+
+          docker-compose exec web test -v 3
