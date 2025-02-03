@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -34,10 +34,10 @@ jobs:
           echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
 
       - name: Build docker compose
-        run: docker-compose build
+        run: docker compose -f docker-compose.action.yml build
 
       - name: Up docker compose
-        run: docker-compose up -d
+        run: docker compose -f docker-compose.action.yml up -d
 
       - name: Test
         run: |
@@ -51,4 +51,4 @@ jobs:
           chmod 600 $GITHUB_WORKSPACE/private.pem
           chmod 600 $GITHUB_WORKSPACE/public.pem
 
-          docker-compose exec web python manage.py test -v 3
+          docker compose exec web-action python manage.py test -v 3
