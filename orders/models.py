@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from markets.models import CryptoCurrency
+
 
 class Order(models.Model):
     ORDER_TYPE_CHOICES = [
@@ -14,6 +16,8 @@ class Order(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     order_type = models.CharField(max_length=10, choices=ORDER_TYPE_CHOICES)
+    base_currency = models.ForeignKey(CryptoCurrency, on_delete=models.CASCADE, related_name="base_currency_orders")
+    quote_currency = models.ForeignKey(CryptoCurrency, on_delete=models.CASCADE, related_name="quote_currency_orders")
     side = models.CharField(max_length=10, choices=SIDE_CHOICES)
     price = models.DecimalField(max_digits=20, decimal_places=8, null=True, blank=True)
     amount = models.DecimalField(max_digits=20, decimal_places=8)
