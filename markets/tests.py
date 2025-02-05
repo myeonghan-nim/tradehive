@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 
-from .models import TradingPair
+from .models import CryptoCurrency, TradingPair
 from users.models import CustomUserTOTPDevice
 
 USER_DATA = {
@@ -58,6 +58,82 @@ class BaseAPITestCase(APITestCase):
         return pyotp.TOTP(base32_key).now()
 
 
+class CryptoCurrencyAPITestCase(BaseAPITestCase):
+    crypto_currency_url = "/markets/crypto-currencies/"
+
+    def setUp(self):
+        super().setUp()
+        self.user.is_staff = True
+        self.user.save()
+        self.authenticate_user()
+
+        self.crypto_currency_data = {"name": "Bitcoin", "symbol": "BTC"}
+        self.crypto_currency = CryptoCurrency.objects.create(**self.crypto_currency_data)
+
+        self.new_crypto_currency_data = {"name": "Ethereum", "symbol": "ETH"}
+
+    def test_get_crypto_currencies_success(self):
+        response = self.client.get(self.crypto_currency_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_crypto_currencies_unauthorized(self):
+        self.client.credentials()
+        response = self.client.get(self.crypto_currency_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_crypto_currency_success(self):
+        response = self.client.get(f"{self.crypto_currency_url}{self.crypto_currency.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_crypto_currency_unauthorized(self):
+        self.client.credentials()
+        response = self.client.get(f"{self.crypto_currency_url}{self.crypto_currency.id}/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_crypto_currency_not_found(self):
+        response = self.client.get(f"{self.crypto_currency_url}{random.randint(1000, 9999)}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_crypto_currency_success(self):
+        response = self.client.post(self.crypto_currency_url, self.new_crypto_currency_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_create_crypto_currency_unauthorized(self):
+        self.client.credentials()
+        response = self.client.post(self.crypto_currency_url, self.new_crypto_currency_data)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_crypto_currency_success(self):
+        response = self.client.patch(f"{self.crypto_currency_url}{self.crypto_currency.id}/", {"name": "Bitcoin Cash", "symbol": "BCH"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.crypto_currency.refresh_from_db()
+        self.assertEqual(self.crypto_currency.name, "Bitcoin Cash")
+        self.assertEqual(self.crypto_currency.symbol, "BCH")
+
+    def test_update_crypto_currency_not_found(self):
+        response = self.client.patch(f"{self.crypto_currency_url}{random.randint(1000, 9999)}/", {"name": "Bitcoin Cash", "symbol": "BCH"})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_crypto_currency_unauthorized(self):
+        self.client.credentials()
+        response = self.client.patch(f"{self.crypto_currency_url}{self.crypto_currency.id}/", {"name": "Bitcoin Cash", "symbol": "BCH"})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_delete_crypto_currency_success(self):
+        response = self.client.delete(f"{self.crypto_currency_url}{self.crypto_currency.id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(CryptoCurrency.objects.filter(id=self.crypto_currency.id).exists())
+
+    def test_delete_crypto_currency_not_found(self):
+        response = self.client.delete(f"{self.crypto_currency_url}{random.randint(1000, 9999)}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_crypto_currency_unauthorized(self):
+        self.client.credentials()
+        response = self.client.delete(f"{self.crypto_currency_url}{self.crypto_currency.id}/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 class TradingPairAPITestCase(BaseAPITestCase):
     trading_pair_url = "/markets/trading-pairs/"
 
@@ -66,6 +142,10 @@ class TradingPairAPITestCase(BaseAPITestCase):
         self.user.is_staff = True
         self.user.save()
         self.authenticate_user()
+
+        btc = CryptoCurrency.objects.create(name="Bitcoin", symbol="BTC")
+        usdt = CryptoCurrency.objects.create(name="Tether", symbol="USDT")
+        CryptoCurrency.objects.create(name="Ethereum", symbol="ETH")
 
         self.trading_pair_data = {
             "base_asset": "BTC",
@@ -77,8 +157,10 @@ class TradingPairAPITestCase(BaseAPITestCase):
             "max_quantity": "100.0",
             "step_size": "0.001",
         }
-        self.trading_pair = TradingPair.objects.create(**self.trading_pair_data)
+        self.trading_pair = TradingPair.objects.create(**{**self.trading_pair_data, "base_asset": btc, "quote_asset": usdt})
 
+        self.invalid_base_asset_data = {**self.trading_pair_data, "base_asset_symbol": "XRP"}
+        self.invalid_quote_asset_data = {**self.trading_pair_data, "quote_asset_symbol": "XRP"}
         self.invalid_price_data = {**self.trading_pair_data, "min_price": "1000000.00", "max_price": "0.01"}
         self.invalid_quantity_data = {**self.trading_pair_data, "min_quantity": "100.0", "max_quantity": "0.001"}
 
@@ -118,6 +200,14 @@ class TradingPairAPITestCase(BaseAPITestCase):
     def test_create_trading_pair_success(self):
         response = self.client.post(self.trading_pair_url, self.new_trading_pair_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_create_trading_pair_invalid_base_asset(self):
+        response = self.client.post(self.trading_pair_url, self.invalid_base_asset_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_trading_pair_invalid_quote_asset(self):
+        response = self.client.post(self.trading_pair_url, self.invalid_quote_asset_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_trading_pair_invalid_price(self):
         response = self.client.post(self.trading_pair_url, {**self.new_trading_pair_data, "min_price": "100.00", "max_price": "0.0001"})
