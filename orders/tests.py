@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase, APIClient
 
 from .models import Order
 from .tasks import match_orders
+from markets.models import CryptoCurrency
 from users.models import CustomUserTOTPDevice
 
 USER_DATA = {
@@ -63,8 +64,11 @@ class OrderAPITestCase(BaseAPITestCase):
         super().setUp()
         self.authenticate_user()
 
-        self.valid_limit_order_data = {"order_type": "limit", "price": "100.00", "amount": "1.5"}
-        self.valid_market_order_data = {"order_type": "market", "amount": "1.5"}
+        CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
+        CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+
+        self.valid_limit_order_data = {"order_type": "limit", "price": "100.00", "amount": "1.5", "base_currency": "BTC", "quote_currency": "KRW"}
+        self.valid_market_order_data = {"order_type": "market", "amount": "1.5", "base_currency": "BTC", "quote_currency": "KRW"}
 
         self.invalid_limit_order_data = {**self.valid_market_order_data, "order_type": "limit"}
         self.invalid_market_order_data = {**self.valid_limit_order_data, "order_type": "market"}
@@ -119,8 +123,11 @@ class TradeAPITestCase(BaseAPITestCase):
         super().setUp()
         self.authenticate_user()
 
-        self.buy_order = Order.objects.create(user=self.user, side="buy", order_type="limit", price="100.00", amount="1.5")
-        self.sell_order = Order.objects.create(user=self.user, side="sell", order_type="limit", price="100.00", amount="1.5")
+        krw = CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
+        btc = CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+
+        self.buy_order = Order.objects.create(user=self.user, side="buy", order_type="limit", price="100.00", amount="1.5", base_currency=btc, quote_currency=krw)
+        self.sell_order = Order.objects.create(user=self.user, side="sell", order_type="limit", price="100.00", amount="1.5", base_currency=btc, quote_currency=krw)
 
     def test_trade_match_success(self):
         match_orders()

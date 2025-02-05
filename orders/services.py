@@ -17,23 +17,26 @@ def match_orders():
 
     for buy_order in buy_orders:
         for sell_order in sell_orders:
-            if buy_order.price >= sell_order.price:
-                trade_amount = min(buy_order.amount, sell_order.amount)
-                match_price = sell_order.price
+            buy_order_trading_pair = f"{buy_order.base_currency.symbol}/{buy_order.quote_currency.symbol}"
+            sell_order_trading_pair = f"{sell_order.base_currency.symbol}/{sell_order.quote_currency.symbol}"
+            if buy_order_trading_pair == sell_order_trading_pair:
+                if buy_order.price >= sell_order.price:
+                    trade_amount = min(buy_order.amount, sell_order.amount)
+                    match_price = sell_order.price
 
-                with transaction.atomic():
-                    Trade.objects.create(buy_order=buy_order, sell_order=sell_order, price=match_price, amount=trade_amount)
+                    with transaction.atomic():
+                        Trade.objects.create(buy_order=buy_order, sell_order=sell_order, price=match_price, amount=trade_amount)
 
-                    buy_order.amount -= trade_amount
-                    sell_order.amount -= trade_amount
+                        buy_order.amount -= trade_amount
+                        sell_order.amount -= trade_amount
+
+                        if buy_order.amount == 0:
+                            buy_order.status = "completed"
+                        if sell_order.amount == 0:
+                            sell_order.status = "completed"
+
+                        buy_order.save()
+                        sell_order.save()
 
                     if buy_order.amount == 0:
-                        buy_order.status = "completed"
-                    if sell_order.amount == 0:
-                        sell_order.status = "completed"
-
-                    buy_order.save()
-                    sell_order.save()
-
-                if buy_order.amount == 0:
-                    break
+                        break
