@@ -12,5 +12,5 @@ elif [ "$1" = "beat" ]; then
     celery -A conf.celery beat --loglevel=info --scheduler django_celery_beat.schedulers.DatabaseScheduler
 else
     echo "Starting Django server..."
-    python manage.py runserver_plus localhost:8000 --cert-file cert.crt --key-file cert.key
+    python manage.py runserver_plus 0.0.0.0:8000 --cert-file cert.crt --key-file cert.key
 fi
