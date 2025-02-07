@@ -1,19 +1,48 @@
 version: '3.8'
 
 services:
-  web:
+  web_1:
     build:
       context: .
-    container_name: web
+    container_name: web_1
     volumes:
       - .:/tradehive
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
+    env_file:
+      - .env
+    networks:
+      - tradehive
+
+  web_2:
+    build:
+      context: .
+    container_name: web_2
+    volumes:
+      - .:/tradehive
+    expose:
+      - "8000"
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      - web_1
+    networks:
+      - tradehive
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./conf/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./cert.crt:/etc/nginx/cert.crt
+      - ./cert.key:/etc/nginx/cert.key
+    depends_on:
+      - web_2
+    networks:
+      - tradehive
 
   db:
     image: postgres:15
@@ -24,14 +53,22 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
+    depends_on:
+      - nginx
+    networks:
+      - tradehive
 
   redis:
     image: redis:7
     container_name: redis
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
+    depends_on:
+      - db
+    networks:
+      - tradehive
 
   celery:
     build:
@@ -43,9 +80,12 @@ services:
       - .:/tradehive
     depends_on:
       - redis
-      - db
     env_file:
       - .env
+    depends_on:
+      - redis
+    networks:
+      - tradehive
 
   celery_beat:
     build:
@@ -56,10 +96,15 @@ services:
     volumes:
       - .:/tradehive
     depends_on:
-      - redis
-      - db
+      - celery
     env_file:
       - .env
+    networks:
+      - tradehive
 
 volumes:
   postgres_data:
+
+networks:
+  tradehive:
+    driver: bridge
