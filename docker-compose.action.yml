@@ -7,10 +7,7 @@ services:
       dockerfile: Dockerfile.action
     container_name: web-action
     volumes:
-      - ./cert.crt:/app/cert.crt
-      - ./cert.key:/app/cert.key
-      - ./private.pem:/app/private.pem
-      - ./public.pem:/app/public.pem
+      - .:/app
     ports:
       - "8000:8000"
     env_file:
