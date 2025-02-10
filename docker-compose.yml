@@ -5,21 +5,18 @@ services:
     build:
       context: .
     container_name: web_1
-    volumes:
-      - .:/tradehive
     expose:
       - "8000"
     env_file:
       - .env
     networks:
-      - tradehive
+      - outer
+      - inner
 
   web_2:
     build:
       context: .
     container_name: web_2
-    volumes:
-      - .:/tradehive
     expose:
       - "8000"
     env_file:
@@ -27,7 +24,8 @@ services:
     depends_on:
       - web_1
     networks:
-      - tradehive
+      - outer
+      - inner
 
   nginx:
     image: nginx:latest
@@ -42,7 +40,7 @@ services:
     depends_on:
       - web_2
     networks:
-      - tradehive
+      - outer
 
   db:
     image: postgres:15
@@ -58,7 +56,7 @@ services:
     depends_on:
       - nginx
     networks:
-      - tradehive
+      - inner
 
   redis:
     image: redis:7
@@ -68,7 +66,7 @@ services:
     depends_on:
       - db
     networks:
-      - tradehive
+      - inner
 
   celery:
     build:
@@ -76,14 +74,12 @@ services:
       dockerfile: Dockerfile
     container_name: celery
     command: ["worker"]
-    volumes:
-      - .:/tradehive
-    depends_on:
-      - redis
     env_file:
       - .env
+    depends_on:
+      - redis
     networks:
-      - tradehive
+      - inner
 
   celery_beat:
     build:
@@ -91,18 +87,18 @@ services:
       dockerfile: Dockerfile
     container_name: celery_beat
     command: ["beat"]
-    volumes:
-      - .:/tradehive
-    depends_on:
-      - celery
     env_file:
       - .env
+    depends_on:
+      - celery
     networks:
-      - tradehive
+      - inner
 
 volumes:
   postgres_data:
 
 networks:
-  tradehive:
+  outer:
+    driver: bridge
+  inner:
     driver: bridge
