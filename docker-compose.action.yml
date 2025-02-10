@@ -6,6 +6,11 @@ services:
       context: .
       dockerfile: Dockerfile.action
     container_name: web-action
+    volumes:
+      - ./cert.crt:/app/cert.crt
+      - ./cert.key:/app/cert.key
+      - ./private.pem:/app/private.pem
+      - ./public.pem:/app/public.pem
     expose:
       - "8000"
     env_file:

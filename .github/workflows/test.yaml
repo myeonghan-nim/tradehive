@@ -24,19 +24,12 @@ jobs:
           echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
           echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
           echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> .env
+
           echo "CERT_CRT=${{ secrets.CERT_CRT }}" >> $GITHUB_ENV
           echo "CERT_KEY=${{ secrets.CERT_KEY }}" >> $GITHUB_ENV
           echo "PRIVATE_PEM=${{ secrets.PRIVATE_PEM }}" >> $GITHUB_ENV
           echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
 
-      - name: Build docker compose
-        run: docker compose -f docker-compose.action.yml build
-
-      - name: Up docker compose
-        run: docker compose -f docker-compose.action.yml up -d
-
-      - name: Test
-        run: |
           echo $CERT_CRT | base64 -d > $GITHUB_WORKSPACE/cert.crt
           echo $CERT_KEY | base64 -d > $GITHUB_WORKSPACE/cert.key
           echo $PRIVATE_PEM | base64 -d > $GITHUB_WORKSPACE/private.pem
@@ -47,4 +40,11 @@ jobs:
           chmod 600 $GITHUB_WORKSPACE/private.pem
           chmod 600 $GITHUB_WORKSPACE/public.pem
 
-          docker compose exec web-action python manage.py test -v 3
+      - name: Build docker compose
+        run: docker compose -f docker-compose.action.yml build
+
+      - name: Up docker compose
+        run: docker compose -f docker-compose.action.yml up -d
+
+      - name: Test
+        run: docker compose exec web-action python manage.py test -v 3
