@@ -11,8 +11,8 @@ services:
       - ./cert.key:/app/cert.key
       - ./private.pem:/app/private.pem
       - ./public.pem:/app/public.pem
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     env_file:
       - .env
 
@@ -25,8 +25,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_action_data:/var/lib/postgresql/data
-    expose:
-      - "5432"
+    ports:
+      - "5432:5432"
     depends_on:
       - web-action
 
