@@ -18,6 +18,7 @@ django-otp==1.5.4
 django-timezone-field==7.1
 djangorestframework==3.15.2
 djangorestframework_simplejwt==5.4.0
+gunicorn==23.0.0
 kombu==5.4.2
 MarkupSafe==3.0.2
 mypy-extensions==1.0.0
