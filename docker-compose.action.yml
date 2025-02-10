@@ -15,6 +15,8 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    depends_on:
+      - db-action
 
   db-action:
     image: postgres:15
@@ -27,8 +29,6 @@ services:
       - postgres_action_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    depends_on:
-      - web-action
 
 volumes:
   postgres_action_data:

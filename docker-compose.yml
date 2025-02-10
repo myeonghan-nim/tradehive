@@ -9,6 +9,8 @@ services:
       - "8000"
     env_file:
       - .env
+    depends_on:
+      - db
     networks:
       - outer
       - inner
@@ -22,7 +24,7 @@ services:
     env_file:
       - .env
     depends_on:
-      - web_1
+      - db
     networks:
       - outer
       - inner
@@ -38,6 +40,7 @@ services:
       - ./cert.crt:/etc/nginx/cert.crt
       - ./cert.key:/etc/nginx/cert.key
     depends_on:
+      - web_1
       - web_2
     networks:
       - outer
@@ -53,8 +56,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     expose:
       - "5432"
-    depends_on:
-      - nginx
     networks:
       - inner
 
