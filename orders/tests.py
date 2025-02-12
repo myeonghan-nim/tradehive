@@ -1,14 +1,20 @@
+import json
 import base64
+from datetime import datetime, timedelta
 
 import pyotp
+from asgiref.sync import async_to_sync, sync_to_async
+from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 
-from .models import Order
+from .models import Order, Trade
 from .tasks import match_orders
 from markets.models import CryptoCurrency
 from users.models import CustomUserTOTPDevice
+from tradehive.asgi import application
 
 USER_DATA = {
     "email": "test@example.com",
@@ -141,3 +147,86 @@ class TradeAPITestCase(BaseAPITestCase):
         match_orders()
         self.assertEqual(Order.objects.get(id=self.buy_order.id).status, "open")
         self.assertEqual(Order.objects.get(id=self.sell_order.id).status, "open")
+
+
+class TradeConsumerTestCase(TestCase):
+    def setUp(self):
+        base = CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+        quote = CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
+
+        buyer = User.objects.create_user(**USER_DATA)
+        seller = User.objects.create_user(**{**USER_DATA, "email": "anothertest@example.com", "username": "anothertestuser"})
+
+        order_type = "limit"
+        self.price = "10000"
+        self.amount = "1.5"
+
+        self.buy_order = Order.objects.create(user=buyer, side="buy", order_type=order_type, price=self.price, amount=self.amount, base_currency=base, quote_currency=quote)
+        self.sell_order = Order.objects.create(user=seller, side="sell", order_type=order_type, price=self.price, amount=self.amount, base_currency=base, quote_currency=quote)
+
+    def test_trade_consumer(self):
+        async def scenario():
+            communicator = WebsocketCommunicator(application, "/ws/orders/BTCKRW/")
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+
+            await sync_to_async(Trade.objects.create)(buy_order=self.buy_order, sell_order=self.sell_order, price=self.price, amount=self.amount)
+
+            response = await communicator.receive_json_from()
+
+            self.assertEqual(response["price"], self.price)
+            self.assertEqual(response["amount"], self.amount)
+
+            await communicator.disconnect()
+
+        async_to_sync(scenario)()
+
+
+class ChartDataAPIViewTestCase(BaseAPITestCase):
+    chart_data_url = "/orders/chart-data/"
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate_user()
+
+        btc = CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+        krw = CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
+
+        order = Order.objects.create(user=self.user, side="buy", order_type="market", amount="3", base_currency=btc, quote_currency=krw)
+
+        now = datetime.now()
+        Trade.objects.create(buy_order=order, sell_order=order, price="10000", amount="2", created_at=now)
+        Trade.objects.create(buy_order=order, sell_order=order, price="11000", amount="1", created_at=now + timedelta(minutes=1))
+
+        self.start = (datetime.now() - timedelta(days=1)).isoformat()
+        self.end = (datetime.now() + timedelta(days=1)).isoformat()
+
+    def test_chart_data_success(self):
+        response = self.client.get(self.chart_data_url, {"symbol": "BTC/KRW", "start": self.start, "end": self.end})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertGreater(len(data), 0)
+
+        for candle in data:
+            self.assertIn("timestamp", candle)
+            self.assertIn("open", candle)
+            self.assertIn("high", candle)
+            self.assertIn("low", candle)
+            self.assertIn("close", candle)
+            self.assertIn("volume", candle)
+
+    def test_chart_data_missing_params(self):
+        response = self.client.get(self.chart_data_url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_chart_data_invalid_symbol(self):
+        response = self.client.get(self.chart_data_url, {"symbol": "ETH/KRW", "start": self.start, "end": self.end})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_chart_data_invalid_date_format(self):
+        start = datetime.now().strftime("%Y/%m/%d")
+        end = (datetime.now() + timedelta(days=1)).strftime("%Y/%m/%d")
+        response = self.client.get(self.chart_data_url, {"symbol": "BTC/KRW", "start": start, "end": end})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
