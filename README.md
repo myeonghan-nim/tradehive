@@ -91,3 +91,12 @@
 - 실시간 차트 기능 추가
 - 실시간 체결 데이터 반영
     - WebSocket으로 실행
+
+### 13일차
+
+- application에 따른 기능 정리
+    - order의 시장 관련 로직 markets로 이동
+- 기술적 분석 도구 기능 추가
+- docker container 갯수 조정
+    - web container 갯수 조정
+    - image 생성 과정 변경
