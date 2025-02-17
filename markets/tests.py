@@ -1,5 +1,7 @@
+import json
 import base64
 import random
+from datetime import datetime, timedelta
 
 import pyotp
 from django.contrib.auth import get_user_model
@@ -7,6 +9,7 @@ from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 
 from .models import CryptoCurrency, TradingPair
+from orders.models import Order, Trade
 from users.models import CustomUserTOTPDevice
 
 USER_DATA = {
@@ -258,3 +261,91 @@ class TradingPairAPITestCase(BaseAPITestCase):
         self.client.credentials()
         response = self.client.delete(f"{self.trading_pair_url}{self.trading_pair.id}/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ChartDataAPIViewTestCase(BaseAPITestCase):
+    chart_data_url = "/markets/chart-data/"
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate_user()
+
+        btc = CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+        krw = CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
+
+        order = Order.objects.create(user=self.user, side="buy", order_type="market", amount="3", base_currency=btc, quote_currency=krw)
+
+        now = datetime.now()
+        Trade.objects.create(buy_order=order, sell_order=order, price="10000", amount="2", created_at=now)
+        Trade.objects.create(buy_order=order, sell_order=order, price="11000", amount="1", created_at=now + timedelta(minutes=1))
+
+        self.start = (datetime.now() - timedelta(days=1)).isoformat()
+        self.end = (datetime.now() + timedelta(days=1)).isoformat()
+
+    def test_chart_data_success_no_indicators(self):
+        response = self.client.get(self.chart_data_url, {"symbol": "BTC/KRW", "start": self.start, "end": self.end})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertIsInstance(data, dict)
+
+        self.assertIn("symbol", data)
+        self.assertIn("interval", data)
+        self.assertIn("start", data)
+        self.assertIn("end", data)
+        self.assertIn("candles", data)
+        self.assertIn("indicators", data)
+
+        candles = data["candles"]
+        self.assertIsInstance(candles, list)
+        self.assertGreater(len(candles), 0)
+        for candle in candles:
+            self.assertIn("timestamp", candle)
+            self.assertIn("open", candle)
+            self.assertIn("high", candle)
+            self.assertIn("low", candle)
+            self.assertIn("close", candle)
+            self.assertIn("volume", candle)
+
+        self.assertEqual(data["indicators"], {})
+
+    def test_chart_data_success_valid_indicators(self):
+        response = self.client.get(self.chart_data_url, {"symbol": "BTC/KRW", "start": self.start, "end": self.end, "interval": "1d", "indicators": "ma,bollinger_bands"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertIsInstance(data, dict)
+        self.assertIn("indicators", data)
+
+        indicators = data["indicators"]
+        self.assertIn("ma", indicators)
+        self.assertIn("bollinger_bands", indicators)
+
+        self.assertIsInstance(indicators["ma"], list)
+        self.assertIsInstance(indicators["bollinger_bands"], dict)
+
+        self.assertIn("upper_bands", indicators["bollinger_bands"])
+        self.assertIn("middle_bands", indicators["bollinger_bands"])
+        self.assertIn("lower_bands", indicators["bollinger_bands"])
+
+    def test_chart_data_invalid_indicator(self):
+        response = self.client.get(self.chart_data_url, {"symbol": "BTC/KRW", "start": self.start, "end": self.end, "indicators": "unknown_indicator"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("Invalid indicator", data["error"])
+
+    def test_chart_data_missing_params(self):
+        response = self.client.get(self.chart_data_url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_chart_data_invalid_symbol(self):
+        response = self.client.get(self.chart_data_url, {"symbol": "ETH/KRW", "start": self.start, "end": self.end})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_chart_data_invalid_date_format(self):
+        start = datetime.now().strftime("%Y/%m/%d")
+        end = (datetime.now() + timedelta(days=1)).strftime("%Y/%m/%d")
+        response = self.client.get(self.chart_data_url, {"symbol": "BTC/KRW", "start": start, "end": end})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
