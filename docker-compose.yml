@@ -1,24 +1,11 @@
 version: '3.8'
 
 services:
-  web_1:
+  web:
     build:
       context: .
-    container_name: web_1
-    expose:
-      - "8000"
-    env_file:
-      - .env
-    depends_on:
-      - db
-    networks:
-      - outer
-      - inner
-
-  web_2:
-    build:
-      context: .
-    container_name: web_2
+      target: web
+    container_name: web
     expose:
       - "8000"
     env_file:
@@ -40,8 +27,7 @@ services:
       - ./cert.crt:/etc/nginx/cert.crt
       - ./cert.key:/etc/nginx/cert.key
     depends_on:
-      - web_1
-      - web_2
+      - web
     networks:
       - outer
 
@@ -65,14 +51,14 @@ services:
     expose:
       - "6379"
     depends_on:
-      - db
+      - nginx
     networks:
       - inner
 
   celery:
     build:
       context: .
-      dockerfile: Dockerfile
+      target: web
     container_name: celery
     command: ["worker"]
     env_file:
@@ -85,7 +71,7 @@ services:
   celery_beat:
     build:
       context: .
-      dockerfile: Dockerfile
+      target: web
     container_name: celery_beat
     command: ["beat"]
     env_file:

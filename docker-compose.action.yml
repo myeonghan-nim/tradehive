@@ -4,6 +4,7 @@ services:
   web-action:
     build:
       context: .
+      target: web
       dockerfile: Dockerfile.action
     container_name: web-action
     expose:
