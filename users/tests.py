@@ -7,6 +7,7 @@ from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import CustomUserTOTPDevice
+from markets.models import CryptoCurrency
 
 USER_DATA = {
     "email": "test@example.com",
@@ -273,3 +274,33 @@ class ChangePasswordAPITestCase(BaseAPITestCase):
     def test_change_password_weak_password(self):
         responst = self.client.post(self.change_password_url, {"old_password": self.user_data["password"], "new_password": "weak"})
         self.assertEqual(responst.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class TransactionsAPITestCase(BaseAPITestCase):
+    transactions_url = "/users/transactions/"
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate_user()
+
+        self.btc = CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+
+    def test_post_transcations_invalid_type(self):
+        response = self.client.post(self.transactions_url, {"transaction_type": "invalid", "currency": "BTC", "amount": 0.001})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_deposit_success(self):
+        response = self.client.post(self.transactions_url, {"transaction_type": "deposit", "currency": "BTC", "amount": 0.001})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(float(self.user.wallet.balances.get(currency=self.btc).amount), 0.001 * (1 - 0.0001))
+
+    def test_withdraw_success(self):
+        self.user.wallet.balances.create(currency=self.btc, amount=1)
+        self.user.wallet.balances.get(currency=self.btc).save()
+        response = self.client.post(self.transactions_url, {"transaction_type": "withdraw", "currency": "BTC", "amount": 0.001})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(float(self.user.wallet.balances.get(currency=self.btc).amount), 1 - (0.001 + 0.001 * 0.0001))
+
+    def test_withdraw_not_enough_balance(self):
+        response = self.client.post(self.transactions_url, {"transaction_type": "withdraw", "currency": "BTC", "amount": 0.001})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
