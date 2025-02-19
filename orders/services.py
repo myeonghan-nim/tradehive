@@ -3,6 +3,7 @@ import logging
 from django.db import transaction
 
 from .models import Order, Trade
+from users.models import WalletBalance
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,28 @@ def match_orders():
 
                     with transaction.atomic():
                         Trade.objects.create(buy_order=buy_order, sell_order=sell_order, price=match_price, amount=trade_amount)
+
+                        buyer_wallet = buy_order.user.wallet
+                        buyer_quote_balance = WalletBalance.objects.select_for_update().get(wallet=buyer_wallet, currency=buy_order.quote_currency)
+                        buyer_base_balance = WalletBalance.objects.select_for_update().get(wallet=buyer_wallet, currency=buy_order.base_currency)
+
+                        required_quote = trade_amount * match_price
+
+                        buyer_quote_balance.amount -= required_quote
+                        buyer_base_balance.amount += trade_amount
+
+                        buyer_quote_balance.save()
+                        buyer_base_balance.save()
+
+                        seller_wallet = sell_order.user.wallet
+                        seller_quote_balance = WalletBalance.objects.select_for_update().get(wallet=seller_wallet, currency=sell_order.quote_currency)
+                        seller_base_balance = WalletBalance.objects.select_for_update().get(wallet=seller_wallet, currency=sell_order.base_currency)
+
+                        seller_quote_balance.amount += required_quote
+                        seller_base_balance.amount -= trade_amount
+
+                        seller_quote_balance.save()
+                        seller_base_balance.save()
 
                         buy_order.amount -= trade_amount
                         sell_order.amount -= trade_amount

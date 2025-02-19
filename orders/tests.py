@@ -68,8 +68,11 @@ class OrderAPITestCase(BaseAPITestCase):
         super().setUp()
         self.authenticate_user()
 
-        CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
-        CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+        self.krw = CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
+        self.btc = CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
+
+        self.user.wallet.balances.create(currency=self.krw, amount=100000)
+        self.user.wallet.balances.create(currency=self.btc, amount=10)
 
         self.valid_limit_order_data = {"order_type": "limit", "price": "100.00", "amount": "1.5", "base_currency": "BTC", "quote_currency": "KRW"}
         self.valid_market_order_data = {"order_type": "market", "amount": "1.5", "base_currency": "BTC", "quote_currency": "KRW"}
@@ -88,6 +91,15 @@ class OrderAPITestCase(BaseAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Order.objects.count(), 0)
 
+    def test_order_buy_limit_insufficient_balance(self):
+        krw_balance = self.user.wallet.balances.get(currency=self.krw)
+        krw_balance.amount = 0
+        krw_balance.save()
+
+        response = self.client.post("/orders/order/", {**self.valid_limit_order_data, "side": "buy"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Order.objects.count(), 0)
+
     def test_order_buy_market_success(self):
         response = self.client.post("/orders/order/", {**self.valid_market_order_data, "side": "buy"})
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -96,6 +108,15 @@ class OrderAPITestCase(BaseAPITestCase):
 
     def test_order_buy_market_with_price(self):
         response = self.client.post("/orders/order/", {**self.invalid_market_order_data, "side": "buy"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_order_buy_market_insufficient_balance(self):
+        krw_balance = self.user.wallet.balances.get(currency=self.krw)
+        krw_balance.amount = 0
+        krw_balance.save()
+
+        response = self.client.post("/orders/order/", {**self.valid_market_order_data, "side": "buy"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Order.objects.count(), 0)
 
@@ -110,6 +131,15 @@ class OrderAPITestCase(BaseAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Order.objects.count(), 0)
 
+    def test_order_sell_limit_insufficient_balance(self):
+        btc_balance = self.user.wallet.balances.get(currency=self.btc)
+        btc_balance.amount = 0
+        btc_balance.save()
+
+        response = self.client.post("/orders/order/", {**self.valid_limit_order_data, "side": "sell"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Order.objects.count(), 0)
+
     def test_order_sell_market_success(self):
         response = self.client.post("/orders/order/", {**self.valid_market_order_data, "side": "sell"})
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -118,6 +148,15 @@ class OrderAPITestCase(BaseAPITestCase):
 
     def test_order_sell_market_with_price(self):
         response = self.client.post("/orders/order/", {**self.invalid_market_order_data, "side": "sell"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_order_sell_market_insufficient_balance(self):
+        btc_balance = self.user.wallet.balances.get(currency=self.btc)
+        btc_balance.amount = 0
+        btc_balance.save()
+
+        response = self.client.post("/orders/order/", {**self.valid_market_order_data, "side": "sell"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Order.objects.count(), 0)
 
@@ -130,13 +169,31 @@ class TradeAPITestCase(BaseAPITestCase):
         krw = CryptoCurrency.objects.create(symbol="KRW", name="Korean Won")
         btc = CryptoCurrency.objects.create(symbol="BTC", name="Bitcoin")
 
-        self.buy_order = Order.objects.create(user=self.user, side="buy", order_type="limit", price="100.00", amount="1.5", base_currency=btc, quote_currency=krw)
-        self.sell_order = Order.objects.create(user=self.user, side="sell", order_type="limit", price="100.00", amount="1.5", base_currency=btc, quote_currency=krw)
+        self.base_krw_amount = 100000
+        self.base_btc_amount = 10
+
+        self.price = 100
+        self.amount = 1.5
+
+        self.buyer = self.user
+        self.buyer.wallet.balances.create(currency=krw, amount=self.base_krw_amount)
+        self.buyer.wallet.balances.create(currency=btc, amount=self.base_btc_amount)
+
+        self.seller = User.objects.create_user(**{**USER_DATA, "email": "anothertest@example.com", "username": "anothertestuser"})
+        self.seller.wallet.balances.create(currency=krw, amount=self.base_krw_amount)
+        self.seller.wallet.balances.create(currency=btc, amount=self.base_btc_amount)
+
+        self.buy_order = Order.objects.create(user=self.buyer, side="buy", order_type="limit", price=self.price, amount=self.amount, base_currency=btc, quote_currency=krw)
+        self.sell_order = Order.objects.create(user=self.seller, side="sell", order_type="limit", price=self.price, amount=self.amount, base_currency=btc, quote_currency=krw)
 
     def test_trade_match_success(self):
         match_orders()
         self.assertEqual(Order.objects.get(id=self.buy_order.id).status, "completed")
         self.assertEqual(Order.objects.get(id=self.sell_order.id).status, "completed")
+        self.assertEqual(float(self.buyer.wallet.balances.get(currency__symbol="KRW").amount), self.base_krw_amount - self.price * self.amount)
+        self.assertEqual(float(self.buyer.wallet.balances.get(currency__symbol="BTC").amount), self.base_btc_amount + self.amount)
+        self.assertEqual(float(self.seller.wallet.balances.get(currency__symbol="KRW").amount), self.base_krw_amount + self.price * self.amount)
+        self.assertEqual(float(self.seller.wallet.balances.get(currency__symbol="BTC").amount), self.base_btc_amount - self.amount)
 
     def test_trade_match_no_match(self):
         self.buy_order.price = "50.00"
@@ -145,6 +202,8 @@ class TradeAPITestCase(BaseAPITestCase):
         match_orders()
         self.assertEqual(Order.objects.get(id=self.buy_order.id).status, "open")
         self.assertEqual(Order.objects.get(id=self.sell_order.id).status, "open")
+        self.assertEqual(self.user.wallet.balances.get(currency__symbol="KRW").amount, 100000)
+        self.assertEqual(self.user.wallet.balances.get(currency__symbol="BTC").amount, 10)
 
 
 class TradeConsumerTestCase(TestCase):
@@ -154,6 +213,9 @@ class TradeConsumerTestCase(TestCase):
 
         buyer = User.objects.create_user(**USER_DATA)
         seller = User.objects.create_user(**{**USER_DATA, "email": "anothertest@example.com", "username": "anothertestuser"})
+
+        buyer.wallet.balances.create(currency=quote, amount=1000)
+        seller.wallet.balances.create(currency=base, amount=1)
 
         order_type = "limit"
         self.price = "10000"
