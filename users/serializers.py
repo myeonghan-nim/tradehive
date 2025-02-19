@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -6,7 +8,8 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CustomUserTOTPDevice
+from .models import CustomUserTOTPDevice, Transaction, WalletBalance
+from markets.models import CryptoCurrency
 
 PHONE_NUMBER_VALIDATOR = RegexValidator(regex=r"^\d{3}-\d{4}-\d{4}$", message="Phone number must be in the format xxx-xxxx-xxxx.")
 
@@ -209,3 +212,53 @@ class UserProfileDeleteSerialzier(serializers.Serializer):
             raise serializers.ValidationError("Invalid OTP.")
 
         return data
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    MIN_FEE = Decimal("0.0001")  # 0.01%
+
+    currency = serializers.SlugRelatedField(slug_field="symbol", queryset=CryptoCurrency.objects.all())
+    fee = serializers.DecimalField(read_only=True, max_digits=20, decimal_places=8, default=MIN_FEE)
+
+    class Meta:
+        model = Transaction
+        fields = ["id", "transaction_type", "currency", "amount", "fee", "created_at"]
+
+    def validate(self, data):
+        transaction_type = data.get("transaction_type")
+        if transaction_type not in dict(Transaction.TRANSACTION_TYPE):
+            raise serializers.ValidationError("Invalid transaction type.")
+
+        amount = data.get("amount", Decimal("0"))
+        fee_input = data.get("fee", self.MIN_FEE)  # TODO: get fee from each currency
+        if fee_input < self.MIN_FEE:
+            fee_input = self.MIN_FEE
+        data["fee"] = fee_input
+
+        currency = data.get("currency")
+        wallet = self.context.get("request").user.wallet
+        wallet_balance = wallet.balances.filter(currency=currency).first()
+        if transaction_type == "withdraw":
+            if not wallet_balance or wallet_balance.amount < (amount * (1 + fee_input)):
+                raise serializers.ValidationError("Not enough balance to withdraw.")
+
+        return data
+
+    def create(self, validated_data):
+        wallet = self.context.get("request").user.wallet
+        transaction_type = validated_data["transaction_type"]
+        amount = validated_data["amount"]
+        fee = validated_data["fee"]
+
+        currency = validated_data["currency"]
+        wallet_balance = wallet.balances.get_or_create(currency=currency)[0]
+        # admin_wallet_balance = User.objects.get(is_superuser=True).wallet.balances.get_or_create(currency=currency_instance)[0]  # TODO: get admin user
+        if transaction_type == "deposit":
+            wallet_balance.amount += amount * (1 - fee)
+        elif transaction_type == "withdraw":
+            wallet_balance.amount -= amount * (1 + fee)
+        # admin_wallet_balance.amount += amount * fee
+        wallet_balance.save()
+        # admin_wallet_balance.save()
+
+        return Transaction.objects.create(wallet=wallet, transaction_type=transaction_type, currency=currency, amount=wallet_balance.amount, fee=amount * fee)

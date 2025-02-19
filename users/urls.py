@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import RegisterView, LoginView, LogoutView, CustomTokenRefreshView, MFAView, QRCodeView, VerifyOTPView, UserProfileView, ChangePasswordView
+from .views import RegisterView, LoginView, LogoutView, CustomTokenRefreshView, MFAView, QRCodeView, VerifyOTPView, UserProfileView, ChangePasswordView, TransactionView
 
 urlpatterns = [
     # login, logout, refresh, change password
@@ -16,4 +16,6 @@ urlpatterns = [
     path("verify-otp/", VerifyOTPView.as_view(), name="verify-otp"),
     # profile
     path("profile/", UserProfileView.as_view(), name="profile"),
+    # transactions
+    path("transactions/", TransactionView.as_view(), name="transactions"),
 ]

@@ -18,6 +18,7 @@ from .serializers import (
     VerifyOTPSerializer,
     UserProfileSerializer,
     UserProfileDeleteSerialzier,
+    TransactionSerializer,
 )
 
 
@@ -123,4 +124,15 @@ class UserProfileView(APIView):
         if serializer.is_valid():
             request.user.delete()
             return Response({"detail": "User deleted successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TransactionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = TransactionSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
