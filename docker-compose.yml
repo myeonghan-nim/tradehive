@@ -5,6 +5,7 @@ services:
     build:
       context: .
       target: web
+      dockerfile: ./docker/Dockerfile
     container_name: web
     expose:
       - "8000"
@@ -40,6 +41,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./conf/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./conf/postgresql/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./cert.crt:/etc/postgresql/cert.crt
+      - ./cert.key:/etc/postgresql/cert.key
+    command: |
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
     expose:
       - "5432"
     networks:
@@ -59,6 +67,7 @@ services:
     build:
       context: .
       target: web
+      dockerfile: ./docker/Dockerfile
     container_name: celery
     command: ["worker"]
     env_file:
@@ -72,6 +81,7 @@ services:
     build:
       context: .
       target: web
+      dockerfile: ./docker/Dockerfile
     container_name: celery_beat
     command: ["beat"]
     env_file:
@@ -81,11 +91,25 @@ services:
     networks:
       - inner
 
+  firewall:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.firewall
+    container_name: firewall
+    network_mode: "host"
+    privileged: true
+
 volumes:
   postgres_data:
 
 networks:
   outer:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
   inner:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
