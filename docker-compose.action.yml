@@ -5,7 +5,7 @@ services:
     build:
       context: .
       target: web
-      dockerfile: Dockerfile.action
+      dockerfile: ./docker/Dockerfile.action
     container_name: web-action
     expose:
       - "8000"
