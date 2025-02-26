@@ -58,9 +58,9 @@ jobs:
       - name: Test
         run: |
           if [ "${{ matrix.group }}" = "markets" ]; then
-            docker-compose exec web-action python manage.py test markets -v 3
+            docker exec web-action python manage.py test markets -v 3
           elif [ "${{ matrix.group }}" = "orders" ]; then
-            docker-compose exec web-action python manage.py test orders -v 3
+            docker exec web-action python manage.py test orders -v 3
           elif [ "${{ matrix.group }}" = "users" ]; then
-            docker-compose exec web-action python manage.py test users -v 3
+            docker exec web-action python manage.py test users -v 3
           fi
