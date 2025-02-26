@@ -40,13 +40,13 @@ jobs:
 
       - name: Build docker compose
         run: |
-          echo $CERT_CRT | base64 -d > $GITHUB_WORKSPACE/cert.crt
-          echo $CERT_KEY | base64 -d > $GITHUB_WORKSPACE/cert.key
+          echo $CERT_CRT | base64 -d > $GITHUB_WORKSPACE/web.crt
+          echo $CERT_KEY | base64 -d > $GITHUB_WORKSPACE/web.key
           echo $PRIVATE_PEM | base64 -d > $GITHUB_WORKSPACE/private.pem
           echo $PUBLIC_PEM | base64 -d > $GITHUB_WORKSPACE/public.pem
 
-          chmod 600 $GITHUB_WORKSPACE/cert.crt
-          chmod 600 $GITHUB_WORKSPACE/cert.key
+          chmod 600 $GITHUB_WORKSPACE/web.crt
+          chmod 600 $GITHUB_WORKSPACE/web.key
           chmod 600 $GITHUB_WORKSPACE/private.pem
           chmod 600 $GITHUB_WORKSPACE/public.pem
 
