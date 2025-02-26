@@ -50,17 +50,17 @@ jobs:
           chmod 600 $GITHUB_WORKSPACE/private.pem
           chmod 600 $GITHUB_WORKSPACE/public.pem
 
-          docker compose -f docker-compose.action.yml build
+          docker-compose -f docker-compose.action.yml build
 
       - name: Up docker compose
-        run: docker compose -f docker-compose.action.yml up -d
+        run: docker-compose -f docker-compose.action.yml up -d
 
       - name: Test
         run: |
           if [ "${{ matrix.group }}" = "markets" ]; then
-            docker compose exec web-action python manage.py test markets -v 1
+            docker-compose exec web-action python manage.py test markets -v 3
           elif [ "${{ matrix.group }}" = "orders" ]; then
-            docker compose exec web-action python manage.py test orders -v 1
+            docker-compose exec web-action python manage.py test orders -v 3
           elif [ "${{ matrix.group }}" = "users" ]; then
-            docker compose exec web-action python manage.py test users -v 1
+            docker-compose exec web-action python manage.py test users -v 3
           fi
