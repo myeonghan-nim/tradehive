@@ -118,3 +118,6 @@
 
 - 방화벽 기능 고도화
     - 각 서비스 별 동일 CA 기반 crt/key로 분리
+- action 메모리 부족 해결
+    - 테스트 grouping을 사용한 parallelization 적용
+    - self-hosted runner 사용
