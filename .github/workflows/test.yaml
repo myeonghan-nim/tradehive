@@ -11,6 +11,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        group: [markets, orders, users]
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -53,4 +56,11 @@ jobs:
         run: docker compose -f docker-compose.action.yml up -d
 
       - name: Test
-        run: docker compose exec web-action python manage.py test -v 3
+        run: |
+          if [ "${{ matrix.group }}" = "markets" ]; then
+            docker compose exec web-action python manage.py test markets -v 3
+          elif [ "${{ matrix.group }}" = "orders" ]; then
+            docker compose exec web-action python manage.py test orders -v 3
+          elif [ "${{ matrix.group }}" = "users" ]; then
+            docker compose exec web-action python manage.py test users -v 3
+          fi
