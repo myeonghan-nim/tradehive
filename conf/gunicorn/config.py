@@ -8,5 +8,5 @@ threads = int(os.getenv("GUNICORN_THREADS", 1))
 
 loglevel = os.getenv("GUNICORN_LOG_LEVEL", "info")
 
-certfile = "/app/cert.crt"
-keyfile = "/app/cert.key"
+certfile = "/app/web.crt"
+keyfile = "/app/web.key"

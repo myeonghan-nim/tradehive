@@ -16,6 +16,7 @@ services:
     networks:
       - outer
       - inner
+    restart: always
 
   nginx:
     image: nginx:latest
@@ -25,12 +26,13 @@ services:
       - "443:443"
     volumes:
       - ./conf/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./cert.crt:/etc/nginx/cert.crt
-      - ./cert.key:/etc/nginx/cert.key
+      - ./ssl/nginx/nginx.crt:/etc/nginx/nginx.crt
+      - ./ssl/nginx/nginx.key:/etc/nginx/nginx.key
     depends_on:
       - web
     networks:
       - outer
+    restart: always
 
   db:
     image: postgres:15
@@ -43,25 +45,24 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./conf/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./conf/postgresql/pg_hba.conf:/etc/postgresql/pg_hba.conf
-      - ./cert.crt:/etc/postgresql/cert.crt
-      - ./cert.key:/etc/postgresql/cert.key
+      - ./ssl/db/db.crt:/etc/ssl/certs/db.crt
+      - ./ssl/db/db.key:/etc/ssl/private/db.key
     command: |
-      postgres
-      -c config_file=/etc/postgresql/postgresql.conf
+      postgres -c config_file=/etc/postgresql/postgresql.conf
     expose:
       - "5432"
     networks:
       - inner
+    restart: always
 
   redis:
     image: redis:7
     container_name: redis
     expose:
       - "6379"
-    depends_on:
-      - nginx
     networks:
       - inner
+    restart: always
 
   celery:
     build:
@@ -73,9 +74,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - redis
+      - web
     networks:
       - inner
+    restart: always
 
   celery_beat:
     build:
@@ -90,12 +92,15 @@ services:
       - celery
     networks:
       - inner
+    restart: always
 
   firewall:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.firewall
     container_name: firewall
+    depends_on:
+      - web
     network_mode: "host"
     privileged: true
 
