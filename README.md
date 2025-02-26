@@ -121,3 +121,4 @@
 - action 메모리 부족 해결
     - 테스트 grouping을 사용한 parallelization 적용
     - self-hosted runner 사용
+    - action이 종료된 후 남는 container 등을 정리하기 위한 단계 추가가

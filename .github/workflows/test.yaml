@@ -64,3 +64,13 @@ jobs:
           elif [ "${{ matrix.group }}" = "users" ]; then
             docker exec web-action python manage.py test users -v 3
           fi
+
+  cleanup:
+    runs-on: self-hosted
+    needs: test
+    if: always()
+    steps:
+      - name: Cleanup
+        run: |
+          docker-compose -f docker-compose.action.yml down --volumes --remove-orphans
+          docker system prune -af --volumes
