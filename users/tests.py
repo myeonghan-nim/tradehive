@@ -43,14 +43,24 @@ class BaseAPITestCase(APITestCase):
     login_url = "/users/login/"
     user_data = USER_DATA
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.r = redis.StrictRedis.from_url(settings.CACHES["default"]["LOCATION"])
+
     def setUp(self):
         self.client = SecureClient()
         self.user = User.objects.create_user(**self.user_data)
+
+    def tearDown(self):
+        self.flush_redis_rate_limit()
+        return super().tearDown()
 
     def authenticate_user(self):
         response = self.client.post(self.login_url, {"email": self.user_data["email"], "password": self.user_data["password"]})
         self.token = response.data["access"]
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token}")
+        self.flush_redis_rate_limit()
 
     def create_mfa_device(self, name="Test Device"):
         return CustomUserTOTPDevice.objects.create(user=self.user, name=name)
@@ -58,6 +68,10 @@ class BaseAPITestCase(APITestCase):
     def generate_valid_otp(self, device):
         base32_key = base64.b32encode(device.bin_key).decode("utf-8")
         return pyotp.TOTP(base32_key).now()
+
+    def flush_redis_rate_limit(self):
+        for key in self.r.scan_iter("rate-limit:*"):
+            self.r.delete(key)
 
 
 class RegisterAPITestCase(BaseAPITestCase):
@@ -311,17 +325,9 @@ class TransactionsAPITestCase(BaseAPITestCase):
 class DDoSMiddlewareAPITestCase(BaseAPITestCase):
     target_url = "/users/profile/"
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.r = redis.StrictRedis.from_url(settings.CACHES["default"]["LOCATION"])
-
     def setUp(self):
         super().setUp()
         self.authenticate_user()
-
-        for key in self.r.scan_iter("rate-limit:*"):
-            self.r.delete(key)
 
     def test_rate_limit(self):
         for i in range(10):
