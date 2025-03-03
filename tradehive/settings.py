@@ -82,6 +82,7 @@ MIDDLEWARE = [
     "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "tradehive.middleware.RateLimitMiddleware",
 ]
 
 ROOT_URLCONF = "tradehive.urls"

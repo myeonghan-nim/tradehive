@@ -1,6 +1,8 @@
 import base64
 
 import pyotp
+import redis
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
@@ -304,3 +306,27 @@ class TransactionsAPITestCase(BaseAPITestCase):
     def test_withdraw_not_enough_balance(self):
         response = self.client.post(self.transactions_url, {"transaction_type": "withdraw", "currency": "BTC", "amount": 0.001})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class DDoSMiddlewareAPITestCase(BaseAPITestCase):
+    target_url = "/users/profile/"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.r = redis.StrictRedis.from_url(settings.CACHES["default"]["LOCATION"])
+
+    def setUp(self):
+        super().setUp()
+        self.authenticate_user()
+
+        for key in self.r.scan_iter("rate-limit:*"):
+            self.r.delete(key)
+
+    def test_rate_limit(self):
+        for i in range(10):
+            response = self.client.get(self.target_url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK, f"Success {i + 1} request.")
+
+        response = self.client.get(self.target_url)
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

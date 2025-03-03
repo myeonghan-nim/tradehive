@@ -58,3 +58,13 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.wallet.user.email} {self.transaction_type} {self.amount} {self.currency.symbol}"
+
+
+class SuspiciousRequest(models.Model):
+    ip_address = models.GenericIPAddressField()
+    url = models.URLField()
+    user_agent = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.ip_address} at {self.timestamp}"
