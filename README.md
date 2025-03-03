@@ -121,4 +121,10 @@
 - action 메모리 부족 해결
     - 테스트 grouping을 사용한 parallelization 적용
     - self-hosted runner 사용
-    - action이 종료된 후 남는 container 등을 정리하기 위한 단계 추가가
+    - action이 종료된 후 남는 container 등을 정리하기 위한 단계 추가
+
+### 17일차
+
+- DDoS 방어 로직 구축
+    - nginx에 관련 설정 추가
+    - django에 middleware 추가 및 기록과 추적을 위한 DB 구성
