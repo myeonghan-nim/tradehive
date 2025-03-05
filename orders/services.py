@@ -16,6 +16,7 @@ def match_orders():
         logger.info("No orders available for matching.")
         return
 
+    # TODO: match market orders
     for buy_order in buy_orders:
         for sell_order in sell_orders:
             buy_order_trading_pair = f"{buy_order.base_currency.symbol}/{buy_order.quote_currency.symbol}"
