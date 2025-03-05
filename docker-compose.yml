@@ -6,6 +6,7 @@ services:
       context: .
       target: web
       dockerfile: ./docker/Dockerfile
+    image: tradehive/web:latest
     container_name: web
     expose:
       - "8000"
@@ -69,6 +70,7 @@ services:
       context: .
       target: web
       dockerfile: ./docker/Dockerfile
+    image: tradehive/web:latest
     container_name: celery
     command: ["worker"]
     env_file:
@@ -84,6 +86,7 @@ services:
       context: .
       target: web
       dockerfile: ./docker/Dockerfile
+    image: tradehive/web:latest
     container_name: celery_beat
     command: ["beat"]
     env_file:
@@ -98,6 +101,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.firewall
+    image: tradehive/firewall:latest
     container_name: firewall
     depends_on:
       - web
