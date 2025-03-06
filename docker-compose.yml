@@ -5,15 +5,17 @@ services:
     build:
       context: .
       target: web
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
     image: tradehive/web:latest
     container_name: web
+    # expose는 호스트와 연결하지 않고 컨테이너 내부에서만 사용할 수 있도록 포트를 노출
     expose:
       - "8000"
     env_file:
       - .env
     depends_on:
       - db
+    # networks는 컨테이너가 속한 네트워크를 지정
     networks:
       - outer
       - inner
@@ -43,11 +45,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
+      # postgresql의 데이터가 들어있는 volume은 초기화 시 항상 비어있어야 하므로
       - postgres_data:/var/lib/postgresql/data
+      # 아래와 같이 설정 파일을 연결하는 경우 경로를 데이터가 들어있는 volume과 분리해야 함
       - ./conf/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./conf/postgresql/pg_hba.conf:/etc/postgresql/pg_hba.conf
       - ./ssl/db/db.crt:/etc/ssl/certs/db.crt
       - ./ssl/db/db.key:/etc/ssl/private/db.key
+    # 그리고 실행 시 설정 파일을 명시적으로 지정해주어야 함
     command: |
       postgres -c config_file=/etc/postgresql/postgresql.conf
     expose:
@@ -65,11 +70,12 @@ services:
       - inner
     restart: always
 
+  # celery worker는 주기적인 작업을 처리하는 프로세스
   celery:
     build:
       context: .
       target: web
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
     image: tradehive/web:latest
     container_name: celery
     command: ["worker"]
@@ -81,11 +87,12 @@ services:
       - inner
     restart: always
 
+  # celery beat는 주기적인 작업을 스케줄링하는 프로세스
   celery_beat:
     build:
       context: .
       target: web
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
     image: tradehive/web:latest
     container_name: celery_beat
     command: ["beat"]
@@ -96,17 +103,6 @@ services:
     networks:
       - inner
     restart: always
-
-  firewall:
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile.firewall
-    image: tradehive/firewall:latest
-    container_name: firewall
-    depends_on:
-      - web
-    network_mode: "host"
-    privileged: true
 
 volumes:
   postgres_data:

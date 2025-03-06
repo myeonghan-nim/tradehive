@@ -5,7 +5,7 @@ services:
     build:
       context: .
       target: web
-      dockerfile: ./docker/Dockerfile.action
+      dockerfile: ./Dockerfile
     container_name: web-action
     expose:
       - "8000"
@@ -13,10 +13,6 @@ services:
       - .env
     depends_on:
       - db-action
-    deploy:
-      resources:
-        limits:
-          memory: 2G
 
   db-action:
     image: postgres:15
