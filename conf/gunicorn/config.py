@@ -8,5 +8,6 @@ threads = int(os.getenv("GUNICORN_THREADS", 1))
 
 loglevel = os.getenv("GUNICORN_LOG_LEVEL", "info")
 
+# HTTPS를 사용하기 위해서 .crt와 .key 파일을 설정
 certfile = "/app/web.crt"
 keyfile = "/app/web.key"
