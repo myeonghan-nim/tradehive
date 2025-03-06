@@ -11,16 +11,22 @@ on:
 jobs:
   test:
     runs-on: self-hosted
+    # 여러 환경 혹은 병렬로 테스트를 진행하기 위해 주로 사용, fail-fast 옵션을 통해 한 환경에서 실패하면 다른 환경을 실행하지 않도록 설정 가능
     strategy:
+      # 아래와 같이 테스트를 수행하는 애플리케이션을 그룹화하여 자동으로 병렬로 수행이 가능
       matrix:
         group: [markets, orders, users]
+    # TODO: 한 번에 이미지를 빌드하고 빌드된 이미지를 사용해 컨테이너 내에서 테스트를 병렬로 수행하도록 설정
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
+      # 아래 라인은 buildx를 사용할 때 필요
       - name: Setup docker buildx
         uses: docker/setup-buildx-action@v3
 
+      # 환경변수를 설정할 때 파일에 기록하고 싶다면 .env와 같이 파일에 기록한 후 사용
+      # $GITHUB_ENV에는 다른 job에서 사용할 수 있는 환경변수를 설정할 수 있음
       - name: Setup environment
         run: |
           echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
@@ -38,6 +44,8 @@ jobs:
           echo "PRIVATE_PEM=${{ secrets.PRIVATE_PEM }}" >> $GITHUB_ENV
           echo "PUBLIC_PEM=${{ secrets.PUBLIC_PEM }}" >> $GITHUB_ENV
 
+      # $GITHUB_WORKSPACE는 GitHub Actions에서 사용하는 환경변수로 현재 작업 디렉토리를 가리킴
+      # .crt/key, .pem 파일과 같은 데이터는 base64로 인코딩하여 GitHub Secrets에 저장하고 디코딩하여 사용
       - name: Build docker compose
         run: |
           echo $CERT_CRT | base64 -d > $GITHUB_WORKSPACE/web.crt
