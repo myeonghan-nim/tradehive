@@ -10,13 +10,15 @@ class CustomUser(AbstractUser):
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     mfa_enabled = models.BooleanField(default=False)
 
-    USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username"]
+    USERNAME_FIELD = "email"  # USERNAME_FIELD는 사용자를 식별하는 데 사용되는 필드
+    REQUIRED_FIELDS = ["username"]  # REQUIRED_FIELDS는 createsuperuser 명령을 실행할 때 요구되는 필드, password는 기본적으로 요구됨
 
     def __str__(self):
         return self.username
 
 
+# TOTPDevice는 django-otp 패키지에서 제공하는 모델로 사용자의 TOTP 장치를 저장하는 데 사용
+# 서버에서 사용 중인 사용자 모델에 자동으로 연결되지 않으므로 사용자 모델과 일대일 관계로 연결
 class CustomUserTOTPDevice(TOTPDevice):
     pass
 

@@ -3,7 +3,7 @@ from django.urls import path
 from .views import RegisterView, LoginView, LogoutView, CustomTokenRefreshView, MFAView, QRCodeView, VerifyOTPView, UserProfileView, ChangePasswordView, TransactionView
 
 urlpatterns = [
-    # login, logout, refresh, change password
+    # 사용자 관리
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
@@ -14,7 +14,7 @@ urlpatterns = [
     path("delete-mfa/", MFAView.as_view(), name="delete-mfa"),
     path("qr-code/", QRCodeView.as_view(), name="qr-code"),
     path("verify-otp/", VerifyOTPView.as_view(), name="verify-otp"),
-    # profile
+    # 프로필
     path("profile/", UserProfileView.as_view(), name="profile"),
     # transactions
     path("transactions/", TransactionView.as_view(), name="transactions"),

@@ -66,6 +66,10 @@ class LogoutSerializer(serializers.Serializer):
     def validate(self, data):
         request = self.context.get("request")
         refresh_token = validate_authorization_header(request)
+        # refresh token을 사용하여 로그아웃을 진행해야 함, refresh token을 사용하는 이유는 access token이 만료되었을 때 refresh token을 사용하여 새로운 access token을 발급받기 때문
+        # refresh token을 사용하여 로그아웃을 진행하면 해당 refresh token을 blacklist에 추가하여 해당 refresh token을 사용하여 새로운 access token을 발급받을 수 없도록 함
+        # access token: 사용자 인증에 사용되며 일반적으로 짧은 유효기간을 가짐
+        # refresh token: access token을 재발급 받기 위한 토큰으로 보통 더 긴 유효기간을 가짐
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
@@ -84,7 +88,8 @@ class CustomTokenRefreshSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid refresh token.")
 
         data = {"access": str(refresh.access_token)}
-        if settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"]:
+        # ROTATE_REFRESH_TOKENS가 True일 경우 재발급 받은 refresh token을 반환
+        if settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"]:  # TODO: True일 때만 refresh token 갱신
             data["refresh"] = str(refresh)
 
         return data
@@ -228,7 +233,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid transaction type.")
 
         amount = data.get("amount", Decimal("0"))
-        fee_input = data.get("fee", self.MIN_FEE)  # TODO: get fee from each currency
+        fee_input = data.get("fee", self.MIN_FEE)  # TODO: 가상화폐에 따라 fee 차별화
         if fee_input < self.MIN_FEE:
             fee_input = self.MIN_FEE
         data["fee"] = fee_input
@@ -250,7 +255,7 @@ class TransactionSerializer(serializers.ModelSerializer):
 
         currency = validated_data["currency"]
         wallet_balance = wallet.balances.get_or_create(currency=currency)[0]
-        # admin_wallet_balance = User.objects.get(is_superuser=True).wallet.balances.get_or_create(currency=currency_instance)[0]  # TODO: get admin user
+        # admin_wallet_balance = User.objects.get(is_superuser=True).wallet.balances.get_or_create(currency=currency_instance)[0]  # TODO: 관리자 지갑에 수수료 추가
         if transaction_type == "deposit":
             wallet_balance.amount += amount * (1 - fee)
         elif transaction_type == "withdraw":

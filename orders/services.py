@@ -16,7 +16,7 @@ def match_orders():
         logger.info("No orders available for matching.")
         return
 
-    # TODO: match market orders
+    # TODO: market 주문 처리 로직 추가
     for buy_order in buy_orders:
         for sell_order in sell_orders:
             buy_order_trading_pair = f"{buy_order.base_currency.symbol}/{buy_order.quote_currency.symbol}"
@@ -26,6 +26,7 @@ def match_orders():
                     trade_amount = min(buy_order.amount, sell_order.amount)
                     match_price = sell_order.price
 
+                    # atomic으로 처리하지 않으면 동시에 여러 거래가 발생할 때 문제가 발생할 수 있음
                     with transaction.atomic():
                         Trade.objects.create(buy_order=buy_order, sell_order=sell_order, price=match_price, amount=trade_amount)
 

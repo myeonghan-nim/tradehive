@@ -17,6 +17,7 @@ def get_candle_data(symbol: str, start: datetime, end: datetime, interval: str):
         return json.loads(cached_data)
 
     base, quote = symbol.split("/")
+    # TODO: Trade가 존재할 때만 가격 정보를 가져오도록 하는 것 보다 가격 정보를 따로 기록하고 Trade가 발생 시 업데이트
     queryset = Trade.objects.filter(
         buy_order__base_currency__symbol=base,
         buy_order__quote_currency__symbol=quote,

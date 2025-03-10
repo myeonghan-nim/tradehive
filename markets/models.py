@@ -9,6 +9,7 @@ class CryptoCurrency(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        # db_table은 DB에 생성되는 테이블 이름을 지정, 만약 이렇게 지정하지 않으면 앱이름_모델이름 형태로 테이블이 생성됨
         db_table = "cryptocurrencies"
 
     def __str__(self):
@@ -29,6 +30,7 @@ class TradingPair(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        # unique_together는 두 개 이상의 필드를 조합하여 유니크한 제약조건을 걸 수 있음
         unique_together = ("base_asset", "quote_asset")
         db_table = "trading_pairs"
 

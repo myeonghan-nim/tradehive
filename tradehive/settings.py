@@ -30,17 +30,18 @@ with open(os.path.join(BASE_DIR, "private.pem"), "r") as private_file:
 with open(os.path.join(BASE_DIR, "public.pem"), "r") as public_file:
     VERIFYING_KEY = public_file.read()
 
+# JWT의 보안 설정
 SIMPLE_JWT = {
-    "SIGNING_KEY": SIGNING_KEY,
-    "VERIFYING_KEY": VERIFYING_KEY,
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ALGORITHM": "RS256",
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "BLACKLIST_AFTER_ROTATION": True,
-    "ROTATE_REFRESH_TOKENS": True,
-    "ISSUER": "tradehive",
-    "LEEWAY": 30,
+    "SIGNING_KEY": SIGNING_KEY,  # 암호화 키
+    "VERIFYING_KEY": VERIFYING_KEY,  # 복호화 키
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),  # access token 유효기간
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # refresh token 유효기간
+    "ALGORITHM": "RS256",  # 암호화 알고리즘
+    "AUTH_HEADER_TYPES": ("Bearer",),  # 헤더 타입
+    "BLACKLIST_AFTER_ROTATION": True,  # refresh token 갱신시 기존 토큰 블랙리스트 추가 여부
+    "ROTATE_REFRESH_TOKENS": True,  # refresh token 갱신 여부
+    "ISSUER": "tradehive",  # 발급자
+    "LEEWAY": 30,  # 토큰 만료시간
 }
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -123,6 +124,9 @@ CACHES = {
 
 ASGI_APPLICATION = "tradehive.routing.application"
 
+# channel을 사용하기 위해 layer를 설정
+# channel: 사용자와 서버간의 실시간 양방향 통신을 위한 라이브러리
+# layer: channel이 사용하는 메시지 브로커
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -145,7 +149,7 @@ DATABASES = {
         "HOST": os.getenv("POSTGRES_HOST"),
         "PORT": os.getenv("POSTGRES_PORT"),
         "OPTIONS": {
-            "sslmode": os.getenv("POSTGRES_SSLMODE"),
+            "sslmode": os.getenv("POSTGRES_SSLMODE"),  # sslmode: 연결을 위한 SSL 모드
         },
     }
 }
@@ -197,22 +201,23 @@ STATIC_URL = "static/"
 
 # https
 
-SECURE_SSL_REDIRECT = True
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = True  # https로 리다이렉트
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")  # 프록시 서버에서 https로 전달받았을 때
 
-SECURE_HSTS_SECONDS = 1 * 12 * 30 * 24 * 60 * 60  # 1 year
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+# HSTS: HTTPS Strict Transport Security, HTTPS로만 통신하도록 강제
+SECURE_HSTS_SECONDS = 1 * 12 * 30 * 24 * 60 * 60  # 1년
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # 서브도메인에도 HSTS 적용
+SECURE_HSTS_PRELOAD = True  # HSTS 프리로드 목록에 추가
 
 
 # CORS
 
-CORS_ALLOW_ALL_ORIGINS = True  # TODO: Change this to False and add allowed origins
+CORS_ALLOW_ALL_ORIGINS = True  # TODO: 허가된 도메인만 허용하도록 변경
 CORS_ALLOWED_ORIGINS = []
 
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = True  # 쿠키 전송 허용
 CORS_ALLOW_HEADERS = [
-    "authorization",
+    "authorization",  # JWT 토큰
 ]
 
 
@@ -220,13 +225,14 @@ CORS_ALLOW_HEADERS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    # 주의: 아래와 같은 throttle 설정은 middleware를 통과하여 뷰나 뷰셋에 적용되므로 만약 middleware가 더 빠르게 요청을 처리한다면 throttle 설정이 무의미해질 수 있음
     "DEFAULT_THROTTLE_CLASSES": (
-        "rest_framework.throttling.UserRateThrottle",
-        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",  # 인증된 사용자의 요청 제한
+        "rest_framework.throttling.AnonRateThrottle",  # 비인증 사용자의 요청 제한
     ),
     "DEFAULT_THROTTLE_RATES": {
-        "user": "1000/day",
-        "anon": "100/hour",
+        "user": "1000/day",  # 인증된 사용자의 요청 제한
+        "anon": "100/hour",  # 비인증 사용자의 요청 제한
     },
 }
 
@@ -236,5 +242,5 @@ REST_FRAMEWORK = {
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
 
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]  # 요청을 받을 수 있는 content type
+CELERY_TASK_SERIALIZER = "json"  # task 직렬화

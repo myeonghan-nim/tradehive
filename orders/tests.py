@@ -246,6 +246,7 @@ class TradeConsumerTestCase(TestCase):
             connected, _ = await communicator.connect()
             self.assertTrue(connected)
 
+            # consumer가 async이므로 DB 데이터를 가져오는 과정인 sync와 매치가 되지 않을 수 있으므로 sync_to_async를 사용
             await sync_to_async(Trade.objects.create)(buy_order=self.buy_order, sell_order=self.sell_order, price=self.price, amount=self.amount)
 
             response = await communicator.receive_json_from()

@@ -8,6 +8,7 @@ from .models import Trade
 
 @receiver(post_save, sender=Trade)
 def send_trade_to_websocket(sender, instance, created, **kwargs):
+    # 거래가 생성되면 생성된 거래 데이터를 WebSocket으로 전송, 내용은 consumers.py의 send_trade_data 함수 참고
     if created:
         channel_layer = get_channel_layer()
         symbol = f"{instance.buy_order.base_currency.symbol}{instance.buy_order.quote_currency.symbol}"

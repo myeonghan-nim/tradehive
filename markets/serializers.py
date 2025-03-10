@@ -8,6 +8,7 @@ class CryptoCurrencySerializer(serializers.ModelSerializer):
         model = CryptoCurrency
         fields = "__all__"
 
+    # validate 함수는 create, update 함수가 호출되기 전에 호출되어 데이터의 유효성을 검사
     def validate(self, data):
         name, symbol = data.get("name"), data.get("symbol")
         if CryptoCurrency.objects.filter(name=name).exists():
@@ -26,12 +27,14 @@ class TradingPairSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def validate(self, data):
+        # base_asset, quote_asset 필드는 ForeignKey가 필요하나 CharField로 받아 처리
         base_asset_symbol, quote_asset_symbol = data.get("base_asset"), data.get("quote_asset")
         if not CryptoCurrency.objects.filter(symbol=base_asset_symbol).exists():
             raise serializers.ValidationError({"base_asset": f"{base_asset_symbol} does not exist."})
         if not CryptoCurrency.objects.filter(symbol=quote_asset_symbol).exists():
             raise serializers.ValidationError({"quote_asset": f"{quote_asset_symbol} does not exist."})
 
+        # instance가 존재하지 않을 때만 검사, 즉 create 시에만 검사
         if not self.instance:
             if TradingPair.objects.filter(base_asset__symbol=base_asset_symbol, quote_asset__symbol=quote_asset_symbol).exists():
                 raise serializers.ValidationError({"trading_pair": f"{base_asset_symbol}/{quote_asset_symbol} already exists."})

@@ -10,6 +10,13 @@ from .serializers import CryptoCurrencySerializer, TradingPairSerializer
 from .utils import get_candle_data, calculate_ma, calculate_bollinger_bands
 
 
+# ModelViewSet은 Django의 View와 유사하며 Model을 기반으로 CRUD(Create, Read, Update, Delete) API를 자동으로 생성해준다.
+# create: View에서 POST 요청을 받아 새로운 객체를 생성한다.
+# retrieve: View에서 GET 요청을 받아 특정 객체를 조회한다.
+# update: View에서 PUT 요청을 받아 특정 객체를 수정한다.
+# partial_update: View에서 PATCH 요청을 받아 특정 객체를 수정한다.
+# destroy: View에서 DELETE 요청을 받아 특정 객체를 삭제한다.
+# list: View에서 GET 요청을 받아 모든 객체를 조회한다.
 class CryptoCurrencyViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     queryset = CryptoCurrency.objects.all()

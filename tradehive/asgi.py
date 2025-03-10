@@ -16,9 +16,12 @@ import orders.routing
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tradehive.settings")
 
+# websocket를 사용하기 위해 ProtocolTypeRouter를 사용
 application = ProtocolTypeRouter(
     {
+        # http는 기존의 get_asgi_application()을 사용
         "http": get_asgi_application(),
+        # websocket은 URLRouter를 사용하여 orders.routing.websocket_urlpatterns를 사용
         "websocket": URLRouter(orders.routing.websocket_urlpatterns),
     }
 )

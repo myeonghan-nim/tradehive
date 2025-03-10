@@ -5,7 +5,7 @@ from .models import Order, Trade
 from markets.models import CryptoCurrency
 
 
-# TODO: add fee calculation
+# TODO: fee 계산 과정 추가
 class OrderSerializer(serializers.ModelSerializer):
     base_currency = serializers.CharField()
     quote_currency = serializers.CharField()
@@ -35,6 +35,7 @@ class OrderSerializer(serializers.ModelSerializer):
         if order_type == "limit" and not data.get("price"):
             raise serializers.ValidationError("Limit orders must include a price.")
 
+        # TODO: 가격을 Trade가 아닌 따로 기록된 시계열 데이터에서 가져오도록 수정
         price = None
         if order_type == "market":
             last_trade = Trade.objects.filter(
@@ -44,7 +45,7 @@ class OrderSerializer(serializers.ModelSerializer):
             if last_trade:
                 price = last_trade.price
             else:
-                price = 0  # TODO: set default price
+                price = 0
         elif order_type == "limit":
             price = float(data.get("price"))
 

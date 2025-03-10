@@ -1,5 +1,3 @@
-# myapp/management/commands/initialize_data.py
-
 import random
 from decimal import Decimal
 
@@ -10,9 +8,9 @@ from orders.models import Order
 from users.models import CustomUser, Wallet, WalletBalance
 
 
+# BaseCommand는 Django에 의해 프로젝트 내 management/commands/ 디렉토리에서 이와 같이 정의된 파일들을 검색해 파일의 이름을 커맨드 이름으로 등록
+# python manage.py my_command로 실행 시 Django의 management framework가 해당 파일의 Command 클래스를 찾아 인스턴스화한 후 handle() 메서드를 호출
 class Command(BaseCommand):
-    help = "Initialize database with sample data for testing."
-
     def handle(self, *args, **options):
         self.stdout.write(self.style.WARNING("Starting data initialization..."))
 
@@ -29,6 +27,7 @@ class Command(BaseCommand):
             {"email": "alice@example.com", "username": "alice", "password": "alicepassword"},
             {"email": "bob@example.com", "username": "bob", "password": "bobpassword"},
             {"email": "charlie@example.com", "username": "charlie", "password": "charliepassword"},
+            # 더 많은 유저 데이터 추가 가능
         ]
 
         users = []
@@ -48,6 +47,7 @@ class Command(BaseCommand):
             {"name": "Ethereum", "symbol": "ETH"},
             {"name": "Ripple", "symbol": "XRP"},
             {"name": "Korean Won", "symbol": "KRW"},
+            # 더 많은 암호화폐 데이터 추가 가능
         ]
 
         cryptos = []
@@ -69,6 +69,7 @@ class Command(BaseCommand):
                     WalletBalance.objects.create(wallet=wallet, currency=crypto, amount=random_amount)
 
     def _create_orders(self, users, cryptos):
+        # KRW를 기준으로 암호화폐를 무작위로 매수/매도 주문 생성
         quote_currency = CryptoCurrency.objects.filter(symbol="KRW").first()
         if not quote_currency:
             return

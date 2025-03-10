@@ -13,6 +13,7 @@ from .models import CryptoCurrency, TradingPair
 from orders.models import Order, Trade
 from users.models import CustomUserTOTPDevice
 
+# TODO: USER_DATA와 같이 다른 테스트에서도 중복으로 사용되는 데이터는 fixtures로 분리
 USER_DATA = {
     "email": "test@example.com",
     "username": "testuser",
@@ -45,9 +46,12 @@ class BaseAPITestCase(APITestCase):
     login_url = "/users/login/"
     user_data = USER_DATA
 
+    # classmethod: 클래스 메서드로 정의된 메서드는 클래스가 인스턴스화 되지 않아도 호출 가능
+    # setUpClass: 테스트 케이스 클래스 전체에 대해 한 번만 실행되는 메서드
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # tearDown에서 redis rate limit을 초기화하기 위해 setUpClass에서 redis 인스턴스 생성
         cls.r = redis.StrictRedis.from_url(settings.CACHES["default"]["LOCATION"])
 
     def setUp(self):
@@ -72,6 +76,7 @@ class BaseAPITestCase(APITestCase):
         return pyotp.TOTP(base32_key).now()
 
     def flush_redis_rate_limit(self):
+        # rate-limit 키를 가진 모든 데이터 삭제
         for key in self.r.scan_iter("rate-limit:*"):
             self.r.delete(key)
 
@@ -81,6 +86,7 @@ class CryptoCurrencyAPITestCase(BaseAPITestCase):
 
     def setUp(self):
         super().setUp()
+        # Django에서 사용자가 관리자 권한을 가지고 있는지는 is_staff 필드로 확인
         self.user.is_staff = True
         self.user.save()
         self.authenticate_user()
@@ -95,6 +101,7 @@ class CryptoCurrencyAPITestCase(BaseAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_get_crypto_currencies_unauthorized(self):
+        # credentials() 메서드를 호출하여 인증 토큰을 제거
         self.client.credentials()
         response = self.client.get(self.crypto_currency_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -124,6 +131,10 @@ class CryptoCurrencyAPITestCase(BaseAPITestCase):
     def test_update_crypto_currency_success(self):
         response = self.client.patch(f"{self.crypto_currency_url}{self.crypto_currency.id}/", {"name": "Bitcoin Cash", "symbol": "BCH"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # refresh_from_db(): 데이터베이스에서 최신 데이터를 가져와서 모델 인스턴스를 업데이트
+        # 해당 메서드는 다음 상황에서 유용
+        # 1. 데이터베이스에서 직접 데이터를 변경한 경우
+        # 2. 다른 사용자가 데이터를 변경한 경우
         self.crypto_currency.refresh_from_db()
         self.assertEqual(self.crypto_currency.name, "Bitcoin Cash")
         self.assertEqual(self.crypto_currency.symbol, "BCH")

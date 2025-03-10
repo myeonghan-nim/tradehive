@@ -3,6 +3,8 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 
+# AsyncWebsocketConsumer는 WebSocket 연결을 처리하는 클래스
+# connect, disconnect, receive 메서드를 오버라이드하여 WebSocket 연결을 처리
 class TradeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.symbol = self.scope["url_route"]["kwargs"]["symbol"]
